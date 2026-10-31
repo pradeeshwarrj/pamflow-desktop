@@ -1,0 +1,113 @@
+/* =====================================================================
+   pamflow Desktop — DESIGN TOKENS
+   ---------------------------------------------------------------------
+   This is the ONE file to edit to change how the whole app looks.
+   Every screen and component reads these variables; nothing else in
+   the app hard-codes a colour, font, size or corner radius.
+
+   - Light mode values are in :root
+   - Dark mode values are in [data-theme='dark']
+   - Each workflow step has a pastel pair:  --<name>-tint (background)
+     and --<name>-ink (text/lines on that background).
+     Which step uses which pastel is set in src/lib/config/stages.ts
+   ===================================================================== */
+
+:root {
+  /* ---- Typography ---- */
+  --font-sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
+
+  --text-xs: 12px;   /* small labels, badges */
+  --text-sm: 13px;   /* hints, secondary text */
+  --text-md: 14px;   /* body text (default) */
+  --text-lg: 16px;   /* app name */
+  --text-xl: 24px;   /* numbers in stat tiles */
+  --text-2xl: 30px;  /* page titles */
+  --text-3xl: 44px;  /* big progress number */
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ---- Spacing scale ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 40px;
+  --space-9: 48px;
+
+  /* ---- Corners ---- */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-pill: 999px;
+
+  /* ---- Layout ---- */
+  --sidebar-width: 232px;
+  --content-max: 960px;
+  --control-height: 44px;   /* buttons and inputs (44px = comfortable click target) */
+
+  /* ---- Neutral colours: LIGHT ---- */
+  --bg: #f6f7f9;          /* page background */
+  --sidebar: #ffffff;     /* sidebar background */
+  --surface: #ffffff;     /* cards */
+  --soft: #f1f3f7;        /* inputs, pill tracks, subtle fills */
+  --ink: #1c2230;         /* main text */
+  --muted: #586172;       /* secondary text */
+  --line: #e6e9ef;        /* borders */
+  --switch-off: #c9cfda;  /* theme switch track when off */
+  --raised: #ffffff;      /* selected pill */
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.08);
+
+  /* ---- Step pastels: LIGHT ---- */
+  --sky-tint: #dceafb;     --sky-ink: #24527f;
+  --mint-tint: #d5f1e3;    --mint-ink: #1a6040;
+  --aqua-tint: #d3eef1;    --aqua-ink: #1a5861;
+  --lavender-tint: #e7e1fa; --lavender-ink: #4a3a92;
+  --peach-tint: #fce4d2;   --peach-ink: #80441b;
+  --rose-tint: #f9dce3;    --rose-ink: #872c45;
+  --butter-tint: #f5ecc6;  --butter-ink: #655311;
+  --sage-tint: #e1edd4;    --sage-ink: #405a26;
+
+  /* ---- Spectrogram ---- */
+  --spec-bg: #fbf6f8;
+  --spec-noise: #b9c0cc;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  /* ---- Neutral colours: DARK ---- */
+  --bg: #111419;
+  --sidebar: #161a21;
+  --surface: #1b2029;
+  --soft: #232934;
+  --ink: #e9ecf1;
+  --muted: #a3abb8;
+  --line: #2a303b;
+  --switch-off: #3a4150;
+  --raised: #343c4b;
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
+
+  /* ---- Step pastels: DARK (deeper tint, lighter ink) ---- */
+  --sky-tint: #1f3349;     --sky-ink: #abcdf2;
+  --mint-tint: #1b392d;    --mint-ink: #a3dfc2;
+  --aqua-tint: #1a3639;    --aqua-ink: #a2dce3;
+  --lavender-tint: #2b2647; --lavender-ink: #c9bef4;
+  --peach-tint: #3e2c20;   --peach-ink: #f4c6a3;
+  --rose-tint: #40232b;    --rose-ink: #f2b5c4;
+  --butter-tint: #3a3420;  --butter-ink: #e8d58c;
+  --sage-tint: #2b3522;    --sage-ink: #c4dca8;
+
+  --spec-bg: #151922;
+  --spec-noise: #5c6676;
+
+  color-scheme: dark;
+}
