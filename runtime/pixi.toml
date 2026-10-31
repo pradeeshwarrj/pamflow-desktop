@@ -1,0 +1,80 @@
+# =====================================================================
+# pamflow Desktop — bundled runtime recipe
+# ---------------------------------------------------------------------
+# Everything the app needs to do the analysis, in one folder that ships
+# inside the installer: R + pamflow's packages, Python + BirdNET, ffmpeg.
+# Users never install any of this themselves.
+#
+#   pixi install          build the runtime (first time: 10–20 min)
+#   pixi run setup-r      add the R packages that are not on conda-forge
+#   pixi run smoke        check that everything works
+# =====================================================================
+
+[workspace]
+name = "pamflow-runtime"
+channels = ["conda-forge"]
+platforms = ["win-64", "osx-arm64", "osx-64", "linux-64"]
+
+[dependencies]
+# --- R and pamflow's imports ---
+r-base = ">=4.4"
+r-cli = "*"
+"r-data.table" = "*"
+r-fs = "*"
+r-ggplot2 = "*"
+r-glue = "*"
+r-processx = "*"
+r-ps = "*"
+r-rlang = "*"
+r-shiny = "*"
+r-signal = "*"        # needed by tuneR
+r-withr = ">=2.5.0"
+r-yaml = "*"
+# --- pamflow's optional features used by the app ---
+r-reticulate = ">=1.41"
+r-openxlsx = "*"
+r-rmarkdown = "*"
+r-knitr = "*"
+# --- app plumbing ---
+r-jsonlite = "*"
+r-remotes = "*"
+# --- tools ---
+ffmpeg = "*"
+# --- Python for BirdNET ---
+python = "3.12.*"
+pip = "*"
+
+[pypi-dependencies]
+birdnet = ">=0.2.16, <0.3"
+
+# r-av: on conda-forge for every platform except Apple Silicon
+[target.win-64.dependencies]
+r-av = "*"
+
+# tuneR and seewave (pamflow imports) are not on conda-forge, so macOS and Linux
+# compile them from CRAN source; these give R a matching C compiler.
+[target.osx-arm64.dependencies]
+c-compiler = "*"
+make = "*"
+pkg-config = "*"       # av is compiled here (no conda-forge build for Apple Silicon)
+[target.osx-64.dependencies]
+r-av = "*"
+c-compiler = "*"
+make = "*"
+[target.linux-64.dependencies]
+r-av = "*"
+c-compiler = "*"
+make = "*"
+
+# Keep the runtime sealed off from any R the user already has installed:
+# no personal R library, no personal .Rprofile / .Renviron.
+# ("NULL" is a path that does not exist, so R ignores it.)
+[activation.env]
+R_LIBS_USER = "NULL"
+R_LIBS = ""
+R_PROFILE_USER = "NULL"
+R_ENVIRON_USER = "NULL"
+
+[tasks]
+setup-r = "Rscript scripts/install_r_extras.R"
+smoke = "Rscript scripts/smoke_test.R"
