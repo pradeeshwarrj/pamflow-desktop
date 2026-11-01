@@ -47,8 +47,14 @@ if (length(still)) stop("Could not install: ", paste(still, collapse = ", "))
 PAMFLOW_VERSION <- "pradeeshwarrj/pamflow@0a49bcdb9075fe083f25183989f7bbb736aba721"  # 0.6.0
 ref <- Sys.getenv("PAMFLOW_REF", PAMFLOW_VERSION)
 cat("pamflow from GitHub:", ref, "\n")
-remotes::install_github(ref, lib = lib, dependencies = FALSE, upgrade = "never",
-                        build_vignettes = FALSE, force = TRUE, quiet = TRUE)
+# Download the plain source archive ("owner/repo@version" -> .tar.gz) instead of
+# remotes::install_github(): that asks GitHub's API first, which allows only
+# 60 requests per hour per network address and fails on shared networks.
+parts <- regmatches(ref, regexec("^([^/]+)/([^@]+)@(.+)$", ref))[[1]]
+if (length(parts) != 4) stop("PAMFLOW_REF must look like owner/repo@version, got: ", ref)
+url <- sprintf("https://github.com/%s/%s/archive/%s.tar.gz", parts[2], parts[3], parts[4])
+remotes::install_url(url, lib = lib, dependencies = FALSE, upgrade = "never",
+                     build_vignettes = FALSE, force = TRUE, quiet = TRUE)
 
 cat("\npamflow", as.character(utils::packageVersion("pamflow", lib.loc = lib)), "installed.\n")
 cat("Next: pixi run smoke\n")
