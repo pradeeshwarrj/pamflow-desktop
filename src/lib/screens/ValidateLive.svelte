@@ -4,7 +4,7 @@
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Card from '$lib/components/Card.svelte';
   import ProgressBar from '$lib/components/ProgressBar.svelte';
-  import Spectrogram from '$lib/components/Spectrogram.svelte';
+  import ClipSpectrogram from '$lib/components/ClipSpectrogram.svelte';
   import Button from '$lib/components/Button.svelte';
   import Pills from '$lib/components/Pills.svelte';
   import Icon from '$lib/components/Icon.svelte';
@@ -195,10 +195,12 @@
     <div class="layout">
       <div class="main">
         <Card>
-          <Spectrogram src={specUrl(current)} label={t('validate.spectrogramLabel')} />
           <audio bind:this={audio} src={clipUrl(current)} preload="auto"
             onplay={() => (playing = true)} onpause={() => (playing = false)} onended={() => (playing = false)}
             ontimeupdate={onTime}></audio>
+          <ClipSpectrogram audioSrc={clipUrl(current)} pictureSrc={specUrl(current)} {audio}
+            eventStart={current.event_offset_s} eventEnd={current.event_end_offset_s}
+            maxHz={info?.spec_max_hz ?? 12000} label={t('validate.spectrogramLabel')} />
           <div class="player">
             <button type="button" class="play" aria-label={playing ? t('validate.pause') : t('validate.play')} onclick={playWhole}>
               <Icon name={playing ? 'pause' : 'play'} size={14} />

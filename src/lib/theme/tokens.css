@@ -79,6 +79,7 @@
   /* ---- Spectrogram ---- */
   --spec-bg: #fbf6f8;
   --spec-noise: #b9c0cc;
+  --spec-quiet: #ffffff;   /* silence in the app-drawn spectrogram (loud sounds use the step's pastel) */
 
   color-scheme: light;
 }
@@ -108,6 +109,7 @@
 
   --spec-bg: #151922;
   --spec-noise: #5c6676;
+  --spec-quiet: #151922;
 
   color-scheme: dark;
 }

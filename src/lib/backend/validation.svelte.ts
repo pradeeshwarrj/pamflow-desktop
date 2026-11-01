@@ -51,6 +51,7 @@ export interface ValidationInfo {
   results_path: string;
   show_confidence: boolean;
   reviewer: string;
+  spec_max_hz?: number;
   pool: { n_events: number; species: { scientific_name: string; common_name: string; N: number }[] } | null;
 }
 

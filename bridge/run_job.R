@@ -196,6 +196,7 @@ emit_validation_state <- function(cfg, with_pool = FALSE) {
                  show_confidence = isTRUE(vc$show_confidence),
                  reviewer = vc$reviewer %||% "",
                  bands = unlist(vc$bands), n_per_cell = vc$n_per_cell,
+                 spec_max_hz = vc$spec_max_hz %||% 12000,
                  rare_max_events = vc$rare_max_events, rare_n = vc$rare_n,
                  pool = pool)
 

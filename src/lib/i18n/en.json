@@ -176,7 +176,11 @@
     "tablesSaved": "The full tables are saved in the validation folder.",
     "metricsFailed": "Precision could not be calculated; see the log.",
     "colWrong": "Wrong",
-    "colUnsure": "Not sure"
+    "colUnsure": "Not sure",
+    "spectrogramView": "Spectrogram view",
+    "viewApp": "App view",
+    "viewPamflow": "pamflow picture",
+    "drawingSpec": "Drawing spectrogram…"
   },
   "report": {
     "title": "Your results",
