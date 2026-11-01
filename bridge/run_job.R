@@ -5,11 +5,15 @@
 #
 # job.json (written by the app):
 #   {
-#     "job": "inspect" | "detect" | "process" | "process_results",
+#     "job": "inspect" | "detect" | "process" | "process_results" |
+#            "validation_state" | "validation_draw" | "validation_metrics",
 #     "project": "<project folder or config.yml>",
 #     "runtime": "<bundled runtime folder>",
 #     "birdnet": { "workers": 4, "min_confidence": 0.3 },   (optional overrides)
-#     "sample_n": null                                        (optional: test on N files)
+#     "sample_n": null,                                       (detect: test on N files)
+#     "strategy": "stratified" | "random" | "rare",           (validation_draw)
+#     "n": 100, "species": ["..."],                           (validation_draw, optional)
+#     "with_pool": true                                       (validation_state: also count events)
 #   }
 #
 # Progress goes to stdout as "@@PAM {json}" lines (see protocol.R).
@@ -157,6 +161,116 @@ job_process_results <- function(cfg) {
   list(status = "ok")
 }
 
+# ---- validation (pamflow Stage 5) ------------------------------------------
+# Files live in <detections>/<run_id>/validation/, exactly as pamflow's own
+# validation app uses them, so the app and RStudio can be used in turn.
+
+validation_dir <- function(cfg) file.path(cfg$paths$detections, cfg$birdnet$run_id, "validation")
+
+# Species BirdNET can name (the model's labels), for the "what is it?" list.
+model_labels <- function(cfg) {
+  tryCatch(readLines(pamflow:::pam_detect_settings(cfg)$labels_file, warn = FALSE, encoding = "UTF-8"),
+           error = function(e) character())
+}
+
+# Everything the review screen needs: the samples ready to review, in the
+# same blind (shuffled) order as pamflow's Shiny app, plus earlier answers.
+emit_validation_state <- function(cfg, with_pool = FALSE) {
+  vdir <- validation_dir(cfg)
+  samples_path <- file.path(vdir, "validation_samples.csv")
+  results_path <- file.path(vdir, "validation_results.csv")
+  clip_dir <- file.path(vdir, "clips"); spec_dir <- file.path(vdir, "spectrograms")
+
+  pool <- NULL
+  if (with_pool) {
+    pool_dt <- tryCatch(pam_validation_pool(cfg), error = function(e) NULL)
+    if (!is.null(pool_dt) && nrow(pool_dt)) {
+      sp <- pool_dt[, .N, by = .(scientific_name, common_name)][order(-N)]
+      pool <- list(n_events = nrow(pool_dt), species = sp)
+    } else pool <- list(n_events = 0L, species = list())
+  }
+
+  vc <- cfg$validation
+  common <- list(val_dir = vdir, clips_dir = clip_dir, specs_dir = spec_dir,
+                 results_path = results_path,
+                 show_confidence = isTRUE(vc$show_confidence),
+                 reviewer = vc$reviewer %||% "",
+                 bands = unlist(vc$bands), n_per_cell = vc$n_per_cell,
+                 rare_max_events = vc$rare_max_events, rare_n = vc$rare_n,
+                 pool = pool)
+
+  if (!file.exists(samples_path)) {
+    do.call(pd_emit, c(list("validation", available = FALSE, n_samples = 0L, n_ready = 0L,
+                            samples = list(), results = list(), labels = model_labels(cfg)), common))
+    return(invisible(NULL))
+  }
+  samples <- data.table::fread(samples_path, colClasses = list(character = c(
+    "recording_date", "detection_datetime", "band", "clip_file", "spec_file")))
+  ready <- file.exists(file.path(clip_dir, samples$clip_file)) &
+    file.exists(file.path(spec_dir, samples$spec_file))
+  shown <- samples[ready]
+  order_ids <- if (nrow(shown)) withr::with_seed(1, sample(shown$sample_id)) else integer()
+  shown <- shown[match(order_ids, shown$sample_id)]
+  keep <- intersect(c("sample_id", "round", "strategy", "species", "scientific_name", "common_name",
+                      "confidence", "band", "grid", "recorder", "detection_datetime", "filename",
+                      "clip_file", "spec_file", "clip_dur_s", "event_offset_s", "event_end_offset_s"),
+                    names(shown))
+  results <- if (file.exists(results_path)) {
+    r <- data.table::fread(results_path, colClasses = list(
+      character = c("verdict", "true_species", "note", "reviewer", "reviewed_at")))
+    unique(r, by = "sample_id", fromLast = TRUE)
+  } else data.table::data.table()
+
+  do.call(pd_emit, c(list("validation", available = TRUE,
+                          n_samples = nrow(samples), n_ready = nrow(shown),
+                          rounds = if (nrow(samples)) max(samples$round) else 0L,
+                          samples = shown[, ..keep], results = results,
+                          labels = unique(c(model_labels(cfg), samples$species))), common))
+}
+
+job_validation_state <- function(cfg) {
+  emit_validation_state(cfg, with_pool = isTRUE(job$with_pool))
+  list(status = "ok")
+}
+
+# Draw a new round of events, then make their clips and spectrograms.
+job_validation_draw <- function(cfg) {
+  strategy <- job$strategy %||% "stratified"
+  pd_emit("stage", stage = "draw", label = "Choosing events")
+  args <- list(strategy = strategy)
+  if (!is.null(job$n)) args$n <- as.integer(job$n)
+  if (length(job$species)) args$species <- job$species
+  drawn <- with_log_events(pam_run_stage("05_validation", function(cfg) do.call(pam_validation_draw, c(list(cfg), args)), cfg))
+  if (drawn$status != "ok") return(list(status = "failed", message = "Choosing events failed; see the log."))
+  n_new <- if (is.null(drawn$result)) 0L else nrow(drawn$result)
+  pd_emit("drawn", n = n_new)
+
+  pd_emit("stage", stage = "export", label = "Making clips and spectrograms", n = n_new)
+  exported <- with_log_events(pam_run_stage("05_export", pam_validation_export, cfg))
+  if (exported$status != "ok") return(list(status = "failed", message = "Making clips failed; see the log."))
+  emit_validation_state(cfg)
+  list(status = "ok", n_new = n_new, n_failed = exported$result$n_failed %||% 0L)
+}
+
+# Precision by species from the answers so far (pamflow's validation report).
+job_validation_metrics <- function(cfg) {
+  res <- with_log_events(pam_run_stage("05_report", pam_validation_report, cfg))
+  if (res$status != "ok") return(list(status = "failed", message = "Could not compute precision; see the log."))
+  m <- res$result
+  cells <- m$cells
+  by_species <- cells[, .(n_pool = sum(n_pool), n_reviewed = sum(n_reviewed), n_correct = sum(n_correct),
+                          n_incorrect = sum(n_incorrect), n_unsure = sum(n_unsure)), by = scientific_name]
+  by_species <- by_species[n_reviewed > 0]
+  ci <- pamflow:::pam_wilson_ci(by_species$n_correct, by_species$n_correct + by_species$n_incorrect)
+  by_species[, `:=`(precision = ifelse(n_correct + n_incorrect > 0, n_correct / (n_correct + n_incorrect), NA_real_),
+                    ci_low = ci$low, ci_high = ci$high)]
+  data.table::setorder(by_species, -n_reviewed)
+  pd_emit("metrics", species = by_species, cells = cells,
+          thresholds = m$thresholds[scientific_name == "ALL"],
+          confusion = utils::head(m$confusion, 20), out_dir = validation_dir(cfg))
+  list(status = "ok")
+}
+
 job_detect <- function(cfg) {
   # Stage 1 first, if this project has not been scanned yet
   if (!file.exists(file.path(cfg$paths$metadata, "audio_master.csv"))) {
@@ -225,6 +339,9 @@ result <- tryCatch(
          detect = job_detect(cfg),
          process = job_process(cfg),
          process_results = job_process_results(cfg),
+         validation_state = job_validation_state(cfg),
+         validation_draw = job_validation_draw(cfg),
+         validation_metrics = job_validation_metrics(cfg),
          list(status = "failed", message = paste("unknown job:", job$job))),
   error = function(e) list(status = "failed", message = conditionMessage(e)))
 

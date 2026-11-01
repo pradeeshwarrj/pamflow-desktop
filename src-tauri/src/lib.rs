@@ -2,9 +2,11 @@
 //
 //   runtime.rs  finds the bundled R/Python runtime and prepares commands in it
 //   jobs.rs     starts, follows and stops pamflow jobs (via bridge/run_job.R)
+//   validation.rs  saves validation answers, shows clips and spectrograms
 
 mod jobs;
 mod runtime;
+mod validation;
 
 use tauri::Manager;
 
@@ -17,7 +19,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             jobs::runtime_info,
             jobs::start_job,
-            jobs::stop_job
+            jobs::stop_job,
+            validation::save_validation_answer,
+            validation::allow_media_folder
         ])
         .build(tauri::generate_context!())
         .expect("error while building pamflow")

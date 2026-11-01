@@ -4,6 +4,7 @@
  */
 import { inApp, runJob, type JobEvent } from './tauri';
 import { processJob } from './process.svelte';
+import { validation } from './validation.svelte';
 
 const STORAGE_KEY = 'pamflow-project-folder';
 
@@ -58,6 +59,9 @@ export async function openProject(folder: string): Promise<void> {
   project.facts = null;
   project.error = '';
   processJob.summary = null; // results belong to the previous project
+  validation.status = 'idle';
+  validation.info = null;
+  validation.metrics = null;
   try {
     localStorage.setItem(STORAGE_KEY, folder);
   } catch {

@@ -21,10 +21,16 @@ export interface RuntimeInfo {
 export type JobEvent = { type: string; [field: string]: unknown };
 
 export interface JobSpec {
-  job: 'inspect' | 'detect' | 'process' | 'process_results';
+  job:
+    | 'inspect' | 'detect' | 'process' | 'process_results'
+    | 'validation_state' | 'validation_draw' | 'validation_metrics';
   project: string;
   birdnet?: Record<string, unknown>;
   sample_n?: number | null;
+  strategy?: 'stratified' | 'random' | 'rare';
+  n?: number;
+  species?: string[];
+  with_pool?: boolean;
 }
 
 export function runtimeInfo(): Promise<RuntimeInfo> {
@@ -60,10 +66,10 @@ export async function showFolder(path: string): Promise<void> {
 }
 
 /**
- * Run a short job and collect its events until it ends.
- * Used for quick questions such as "what is in this project?".
+ * Run a job and collect its events until it ends. `onEvent` (optional)
+ * sees each event as it arrives, e.g. to show which stage is running.
  */
-export async function runJob(spec: JobSpec): Promise<JobEvent[]> {
+export async function runJob(spec: JobSpec, onEvent?: (event: JobEvent) => void): Promise<JobEvent[]> {
   const events: JobEvent[] = [];
   let jobId: string | null = null;
   const early: { id: string; event: JobEvent }[] = [];
@@ -72,6 +78,7 @@ export async function runJob(spec: JobSpec): Promise<JobEvent[]> {
     const take = (id: string, event: JobEvent) => {
       if (id !== jobId) return;
       events.push(event);
+      onEvent?.(event);
       if (event.type === 'exit') {
         unlisten?.();
         resolve(events);
