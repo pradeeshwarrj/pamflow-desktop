@@ -1,6 +1,8 @@
-<!-- Not built yet: shows a placeholder in the approved layout. -->
+<!-- Step 5 · Process: live inside the app, demo in a plain browser. -->
 <script lang="ts">
-  import ComingSoon from '$lib/components/ComingSoon.svelte';
+  import { inApp } from '$lib/backend/tauri';
+  import ProcessLive from '$lib/screens/ProcessLive.svelte';
+  import ProcessDemo from '$lib/screens/ProcessDemo.svelte';
 </script>
 
-<ComingSoon stage="process" />
+{#if inApp}<ProcessLive />{:else}<ProcessDemo />{/if}

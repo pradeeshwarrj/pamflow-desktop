@@ -85,3 +85,27 @@ export const report = {
     { name: 'Other species', n: 5 }
   ]
 };
+
+/** Process step demo: the G_1180 pilot (1,712 raw detections -> 88 events). */
+export const processSummary = {
+  available: true,
+  out_dir: '',
+  updated: '',
+  raw: 1712,
+  removed: 1624,
+  events: 88,
+  n_species: 2,
+  n_grids: 1,
+  steps: [
+    { rule: 'invalid confidence or timestamps', n_before: 1712, n_removed: 0 },
+    { rule: 'file not in master table', n_before: 1712, n_removed: 0 },
+    { rule: 'beyond end of recording', n_before: 1712, n_removed: 0 },
+    { rule: 'outside deployment window', n_before: 1712, n_removed: 242 },
+    { rule: 'below confidence threshold', n_before: 1470, n_removed: 1382 },
+    { rule: 'merged overlapping windows into events (not removed)', n_before: 88, n_removed: 0 }
+  ],
+  species: [
+    { scientific_name: 'Hypothymis azurea', common_name: 'Black-naped Monarch', events: 83, max_confidence: 0.97 },
+    { scientific_name: '', common_name: 'Other species', events: 5, max_confidence: 0.8 }
+  ]
+};

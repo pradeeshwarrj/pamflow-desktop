@@ -5,7 +5,7 @@
 #
 # job.json (written by the app):
 #   {
-#     "job": "inspect" | "detect",
+#     "job": "inspect" | "detect" | "process" | "process_results",
 #     "project": "<project folder or config.yml>",
 #     "runtime": "<bundled runtime folder>",
 #     "birdnet": { "workers": 4, "min_confidence": 0.3 },   (optional overrides)
@@ -89,7 +89,71 @@ job_inspect <- function(cfg) {
           workers = bc$workers,
           cores_physical = parallel::detectCores(logical = FALSE),
           cores_logical = parallel::detectCores(logical = TRUE),
-          detections_folder = cfg$paths$detections)
+          detections_folder = cfg$paths$detections,
+          processing = processing_settings(cfg))
+  list(status = "ok")
+}
+
+# The cleaning rules from config.yml, for display.
+processing_settings <- function(cfg) {
+  pc <- cfg$processing
+  list(min_confidence = pc$min_confidence,
+       drop_outside_deployment = isTRUE(pc$drop_outside_deployment %||% TRUE),
+       merge_gap_s = pc$merge_gap_s %||% 0,
+       max_overrun_s = pc$max_overrun_s %||% 3,
+       thresholds_file = pc$species_thresholds_file,
+       season_file = pc$species_season_file,
+       n_whitelist = length(unlist(pc$species_whitelist)),
+       n_blacklist = length(unlist(pc$species_blacklist)),
+       date_range = unlist(pc$date_range))
+}
+
+processed_dir <- function(cfg) file.path(cfg$paths$detections, cfg$birdnet$run_id, "processed")
+
+# Read the files pamflow's Stage 4 wrote and send a summary to the app.
+emit_processed <- function(cfg) {
+  out_dir <- processed_dir(cfg)
+  steps_path <- file.path(out_dir, "processing_steps.csv")
+  clean_path <- file.path(out_dir, "detections_clean.csv")
+  if (!file.exists(steps_path) || !file.exists(clean_path)) {
+    pd_emit("processed", available = FALSE, out_dir = out_dir)
+    return(invisible(FALSE))
+  }
+  steps <- data.table::fread(steps_path)
+  clean <- data.table::fread(clean_path)
+  cols <- intersect(c("scientific_name", "common_name", "confidence", "grid"), names(clean))
+  clean <- clean[, ..cols]
+  species <- if (nrow(clean)) {
+    clean[, .(events = .N, max_confidence = round(max(confidence), 3)),
+          by = .(scientific_name, common_name)][order(-events)]
+  } else data.table::data.table()
+  merge_step <- grepl("^merged", steps$rule)
+  pd_emit("processed",
+          available = TRUE,
+          out_dir = out_dir,
+          updated = format(file.mtime(clean_path), "%Y-%m-%d %H:%M"),
+          raw = if (nrow(steps)) steps$n_before[1] else 0L,
+          removed = sum(steps$n_removed[!merge_step]),
+          events = nrow(clean),
+          n_species = nrow(species),
+          n_grids = if ("grid" %in% names(clean)) data.table::uniqueN(clean$grid) else NA_integer_,
+          steps = steps,
+          species = utils::head(species, 15))
+  invisible(TRUE)
+}
+
+job_process <- function(cfg) {
+  pd_emit("stage", stage = "process", label = "Cleaning detections")
+  res <- with_log_events(pam_run_stage("04_process", pam_process_detections, cfg))
+  if (res$status != "ok") {
+    return(list(status = "failed", message = "Cleaning the detections failed; see the log."))
+  }
+  emit_processed(cfg)
+  list(status = "ok", minutes = round(as.numeric(res$duration), 2), warnings = res$warnings)
+}
+
+job_process_results <- function(cfg) {
+  emit_processed(cfg)
   list(status = "ok")
 }
 
@@ -159,6 +223,8 @@ result <- tryCatch(
   switch(job$job,
          inspect = job_inspect(cfg),
          detect = job_detect(cfg),
+         process = job_process(cfg),
+         process_results = job_process_results(cfg),
          list(status = "failed", message = paste("unknown job:", job$job))),
   error = function(e) list(status = "failed", message = conditionMessage(e)))
 

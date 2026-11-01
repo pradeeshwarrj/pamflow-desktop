@@ -148,7 +148,7 @@
     </section>
 
     <div class="grid-3">
-      <StatTile plain value={detectJob.detections.toLocaleString()} label={t('detect.detectionsSoFar')} />
+      <StatTile plain value={detectJob.detections.toLocaleString()} label={active ? t('detect.detectionsSoFar') : t('detect.detections')} />
       <StatTile plain value={detectJob.done} label={t('detect.filesDone')} />
       <StatTile plain value={detectJob.failed} label={t('detect.filesFailed')} />
     </div>

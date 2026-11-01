@@ -3,6 +3,7 @@
  * what the engine found in it.
  */
 import { inApp, runJob, type JobEvent } from './tauri';
+import { processJob } from './process.svelte';
 
 const STORAGE_KEY = 'pamflow-project-folder';
 
@@ -23,6 +24,17 @@ export interface ProjectFacts {
   cores_physical: number;
   cores_logical: number;
   detections_folder: string;
+  processing: {
+    min_confidence: number | null;
+    drop_outside_deployment: boolean;
+    merge_gap_s: number;
+    max_overrun_s: number;
+    thresholds_file: string | null;
+    season_file: string | null;
+    n_whitelist: number;
+    n_blacklist: number;
+    date_range: string[] | null;
+  };
 }
 
 function savedFolder(): string {
@@ -45,6 +57,7 @@ export async function openProject(folder: string): Promise<void> {
   project.folder = folder;
   project.facts = null;
   project.error = '';
+  processJob.summary = null; // results belong to the previous project
   try {
     localStorage.setItem(STORAGE_KEY, folder);
   } catch {

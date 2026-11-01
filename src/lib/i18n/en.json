@@ -106,7 +106,8 @@
     "failedFile": "failed",
     "batch": "batch {n} of {total}",
     "of": "of",
-    "filesDone": "files done"
+    "filesDone": "files done",
+    "detections": "detections"
   },
   "validate": {
     "question": "Is this a {species}?",
@@ -157,6 +158,54 @@
       "activity": "Daily activity",
       "validation": "Validation accuracy",
       "occupancy": "Occupancy inputs"
+    }
+  },
+  "process": {
+    "title": "Clean the detections",
+    "intro": "pamflow removes detections that break the rules below, then joins back-to-back windows of the same species into events.",
+    "rulesTitle": "Cleaning rules",
+    "rulesHint": "From your project's config.yml",
+    "minConfidence": "Minimum confidence",
+    "perSpecies": "per species, from {file}",
+    "outsideDeployment": "Outside deployment dates",
+    "dropped": "removed",
+    "kept": "kept",
+    "mergeGap": "Join windows closer than",
+    "seconds": "{n} s",
+    "whitelist": "Only these species",
+    "blacklist": "Never these species",
+    "nSpecies": "{n} species",
+    "dates": "Dates",
+    "seasons": "Species seasons",
+    "run": "Clean detections",
+    "runAgain": "Clean again",
+    "running": "Cleaning…",
+    "updated": "Last cleaned {when}",
+    "waitDetect": "Wait for Detect to finish",
+    "noResultsTitle": "Not cleaned yet",
+    "noResultsHint": "Press Clean detections to see what is kept.",
+    "raw": "raw detections",
+    "removed": "removed by rules",
+    "events": "events kept",
+    "species": "species",
+    "funnelTitle": "What each rule removed",
+    "funnelHint": "Detections left after each step",
+    "allDetections": "All BirdNET detections",
+    "mergedInto": "Joined into events",
+    "untouched": "Removed nothing:",
+    "speciesTitle": "Most detected species",
+    "speciesHint": "Events after cleaning · {n} species in total",
+    "noEvents": "No events were kept.",
+    "rules": {
+      "invalid confidence or timestamps": "Invalid confidence or time",
+      "file not in master table": "Recording not in the scan",
+      "beyond end of recording": "Past the end of the recording",
+      "outside deployment window": "Outside deployment dates",
+      "species not on whitelist": "Species not on the list",
+      "species on blacklist": "Species excluded",
+      "outside date range": "Outside the date range",
+      "outside species season": "Outside the species' season",
+      "below confidence threshold": "Below the confidence threshold"
     }
   }
 }

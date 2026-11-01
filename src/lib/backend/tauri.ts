@@ -21,7 +21,7 @@ export interface RuntimeInfo {
 export type JobEvent = { type: string; [field: string]: unknown };
 
 export interface JobSpec {
-  job: 'inspect' | 'detect';
+  job: 'inspect' | 'detect' | 'process' | 'process_results';
   project: string;
   birdnet?: Record<string, unknown>;
   sample_n?: number | null;
