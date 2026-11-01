@@ -10,6 +10,8 @@
   import Icon from '$lib/components/Icon.svelte';
   import { project } from '$lib/mock/demo';
   import { t } from '$lib/i18n';
+  import { inApp } from '$lib/backend/tauri';
+  import ProjectPicker from '$lib/screens/ProjectPicker.svelte';
 
   let recordingsFolder = $state(project.recordingsFolder);
   let pattern = $state(project.pattern);
@@ -19,6 +21,11 @@
 </script>
 
 <PageHeader stage="project" title={t('project.title')} intro={t('project.intro')} />
+
+{#if inApp}
+  <ProjectPicker />
+  <p class="preview-note">{t('project.demoBelow')}</p>
+{/if}
 
 <div class="grid-3">
   <StatTile value={project.recordings.toLocaleString()} label={t('project.recordingsFound')} />
@@ -93,5 +100,6 @@
   .strong { font-weight: var(--weight-semibold); }
   .value { font-weight: var(--weight-semibold); color: var(--accent-ink); font-variant-numeric: tabular-nums; }
   input[type='range'] { width: 100%; }
+  .preview-note { font-size: var(--text-sm); color: var(--muted); }
   .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 </style>

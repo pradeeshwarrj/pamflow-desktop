@@ -68,7 +68,7 @@ record("BirdNET + TensorFlow import", length(kv) == 4, paste(kv, collapse = "  "
 if (length(kv) != 4) cat(tail(out, 15), sep = "\n")
 
 # --- pamflow finds the bundled Python? (after the app's own adjustments) ---
-source(file.path("scripts", "pamflow_patches.R"))
+source(file.path("..", "bridge", "pamflow_patches.R"))
 patched <- tryCatch(pam_desktop_apply_patches(), error = function(e) paste("error:", conditionMessage(e)))
 if (length(patched)) cat("      app adjustments applied:", paste(patched, collapse = "; "), "\n")
 pf_python <- tryCatch(pamflow:::pam_birdnet_python_path(prefix), error = function(e) NA_character_)

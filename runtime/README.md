@@ -36,30 +36,24 @@ pixi run smoke E:/Pradeeshwar/pamflow_pilot/model/BirdNet_v2_custom.tflite E:/Pr
 The runtime is built in `runtime\.pixi\` (ignored by git). `pixi.lock`,
 created by `pixi install`, records the exact versions: commit it.
 
-## Known issue: pamflow on Windows looks for `Scripts\python.exe`
+## Which pamflow is used
 
-pamflow expects a Python *virtual environment*, where Windows keeps Python in
-`Scripts\python.exe`. In this runtime (a conda environment) it is at the top
-of the folder: `python.exe`. On macOS and Linux both use `bin/python`, so it
-already works there.
+pamflow is always **downloaded from GitHub** at a fixed version, set by
+`PAMFLOW_VERSION` in `scripts/install_r_extras.R` (now: the 0.6.0 commit).
+No local copy of pamflow is used or changed. To move to a newer pamflow,
+change that one line and run `pixi run setup-r` again.
 
-The smoke test line **"pamflow finds this Python"** shows whether this is
-fixed. The fix is a few lines in pamflow's `R/birdnet_env.R`:
+## App-side adjustments to pamflow
 
-```r
-pam_birdnet_python_path <- function(envdir) {
-  if (.Platform$OS.type == "windows") {
-    venv  <- file.path(envdir, "Scripts", "python.exe")   # virtual environment
-    conda <- file.path(envdir, "python.exe")              # conda / pixi environment
-    if (!file.exists(venv) && file.exists(conda)) conda else venv
-  } else {
-    file.path(envdir, "bin", "python")
-  }
-}
-```
+`bridge/pamflow_patches.R` (in the project's main folder) holds small adjustments the app makes to pamflow
+**inside its own R session after loading it**; pamflow itself is untouched.
 
-Then point pamflow at the runtime with `birdnet: python_env: <runtime folder>`
-in the config (the app will do this automatically).
+- **Windows Python location.** pamflow expects a Python virtual environment
+  (`Scripts\python.exe` on Windows). This runtime keeps Python at
+  `python.exe` in the top folder, so the app tells pamflow where to look.
+  macOS and Linux need nothing.
+
+Each adjustment can be deleted once pamflow handles that case itself.
 
 ## Size
 

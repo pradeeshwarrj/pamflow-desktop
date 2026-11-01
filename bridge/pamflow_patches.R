@@ -6,7 +6,7 @@
 # can be removed as soon as pamflow handles the case itself.
 #
 # Usage (the app's R bridge, and the smoke test, do this at start-up):
-#   source("scripts/pamflow_patches.R"); pam_desktop_apply_patches()
+#   source("bridge/pamflow_patches.R"); pam_desktop_apply_patches()
 # ---------------------------------------------------------------------
 
 pam_desktop_apply_patches <- function() {
