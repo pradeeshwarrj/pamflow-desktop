@@ -1,0 +1,56 @@
+# Builds the bundled runtime on every operating system pamflow Desktop
+# supports and runs the smoke test, so problems on a Mac or Linux show up
+# without needing one of those computers.
+#
+# Runs when anything in runtime/ changes, and on demand from the
+# Actions tab ("Run workflow").
+
+name: runtime check
+
+on:
+  push:
+    paths:
+      - "runtime/**"
+      - ".github/workflows/runtime-check.yml"
+  pull_request:
+    paths:
+      - "runtime/**"
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false          # one system failing does not stop the others
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+          - name: macOS (Apple Silicon)
+            os: macos-15
+          - name: macOS (Intel)
+            os: macos-15-intel
+          - name: Linux
+            os: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the runtime (pixi install)
+        uses: prefix-dev/setup-pixi@v0.9.3
+        with:
+          manifest-path: runtime/pixi.toml
+          locked: true            # use exactly the versions in pixi.lock
+          cache: true
+          cache-write: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+      - name: Add tuneR, seewave and pamflow (pixi run setup-r)
+        run: pixi run setup-r
+
+      - name: Smoke test (pixi run smoke)
+        run: pixi run smoke
