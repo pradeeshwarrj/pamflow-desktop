@@ -25,7 +25,8 @@ export interface JobSpec {
     | 'inspect' | 'detect' | 'process' | 'process_results'
     | 'validation_state' | 'validation_draw' | 'validation_metrics'
     | 'occupancy_build' | 'occupancy_results' | 'model_input'
-    | 'report_preview' | 'report' | 'config_save';
+    | 'report_preview' | 'report' | 'config_save'
+    | 'scan' | 'scan_results' | 'filter_info' | 'filter';
   project: string;
   birdnet?: Record<string, unknown>;
   sample_n?: number | null;
@@ -37,6 +38,8 @@ export interface JobSpec {
   standardize?: boolean;
   formats?: string[];
   changes?: { section: string; key: string; value: unknown }[];
+  filter?: Record<string, unknown>;
+  force?: boolean;
 }
 
 export function runtimeInfo(): Promise<RuntimeInfo> {

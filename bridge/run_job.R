@@ -5,13 +5,16 @@
 #
 # job.json (written by the app):
 #   {
-#     "job": "inspect" | "config_save" | "detect" | "process" | "process_results" |
+#     "job": "inspect" | "config_save" | "scan" | "scan_results" | "filter_info" | "filter" |
+#            "detect" | "process" | "process_results" |
 #            "validation_state" | "validation_draw" | "validation_metrics" |
 #            "occupancy_build" | "occupancy_results" | "model_input" |
 #            "report_preview" | "report",
 #     "project": "<project folder or config.yml>",
 #     "runtime": "<bundled runtime folder>",
 #     "birdnet": { "workers": 4, "min_confidence": 0.3 },   (optional overrides)
+#     "filter": { "workers": 4 },                            (optional overrides)
+#     "force": true                                           (scan: re-read every header)
 #     "sample_n": null,                                       (detect: test on N files)
 #     "strategy": "stratified" | "random" | "rare",           (validation_draw)
 #     "n": 100, "species": ["..."],                           (validation_draw, optional)
@@ -70,6 +73,7 @@ cfg <- tryCatch(pam_config_read(found$config), error = function(e) fail(conditio
 
 # settings the app changes for this run only
 if (length(job$birdnet)) cfg$birdnet <- utils::modifyList(cfg$birdnet, as.list(job$birdnet))
+if (length(job$filter)) cfg$filter <- utils::modifyList(cfg$filter, as.list(job$filter))
 if (is.null(cfg$birdnet$python_env) && nzchar(job$runtime %||% "")) {
   cfg$birdnet$python_env <- job$runtime   # BirdNET runs with the bundled Python
 }
@@ -83,6 +87,11 @@ EDITABLE <- list(
   list("paths", "audio_standardized", "folder"),
   list("paths", "deployment_sheet", "file"),
   list("filenames", "timezone", "text"),
+  list("paths", "filtered", "folder"),
+  list("filter", "enabled", "boolean"),
+  list("filter", "highpass_hz", "number"),
+  list("filter", "order", "integer"),
+  list("filter", "workers", "integer"),
   list("birdnet", "model_dir", "folder"),
   list("birdnet", "classifier_name", "text"),
   list("birdnet", "min_confidence", "number"),
@@ -571,6 +580,112 @@ job_validation_metrics <- function(cfg) {
   list(status = "ok")
 }
 
+# ---- scan (pamflow Stage 1) and filter (Stage 2) ---------------------------
+
+# Summary of the last scan, from the files pamflow wrote.
+emit_scan <- function(cfg) {
+  master_path <- file.path(cfg$paths$metadata, "audio_master.csv")
+  if (!file.exists(master_path)) {
+    pd_emit("scan", available = FALSE, audio_folder = cfg$paths$audio_standardized)
+    return(invisible(FALSE))
+  }
+  m <- data.table::fread(master_path)
+  col <- function(name, default = FALSE) if (name %in% names(m)) m[[name]] else rep(default, nrow(m))
+  count <- function(name) sum(col(name) %in% TRUE)
+  per_grid_path <- file.path(cfg$paths$outputs, "audio_summary_per_grid.csv")
+  issues_path <- file.path(cfg$paths$outputs, "deployment_issues.csv")
+  per_grid <- if (file.exists(per_grid_path)) data.table::fread(per_grid_path) else data.table::data.table()
+  if (nrow(per_grid)) {
+    for (cn in intersect(c("hours", "median_file_min"), names(per_grid))) per_grid[[cn]] <- round(per_grid[[cn]], 1)
+  }
+  pd_emit("scan",
+          available = TRUE,
+          updated = format(file.mtime(master_path), "%Y-%m-%d %H:%M"),
+          audio_folder = cfg$paths$audio_standardized,
+          metadata_folder = cfg$paths$metadata,
+          n_files = nrow(m),
+          n_grids = data.table::uniqueN(col("grid", NA)),
+          total_hours = round(sum(col("duration_s", 0), na.rm = TRUE) / 3600, 1),
+          n_qc_pass = count("qc_pass"),
+          issues = list(invalid_name = sum(!(col("valid_name", TRUE) %in% TRUE)),
+                        unreadable = sum(!(col("readable", TRUE) %in% TRUE)),
+                        truncated = count("truncated"), short = count("short"),
+                        duplicate = count("duplicate"), gaps = count("gap_before"),
+                        outside_deployment = sum(!(col("in_deployment", TRUE) %in% TRUE))),
+          per_grid = per_grid,
+          deployment_issues = if (file.exists(issues_path)) utils::head(data.table::fread(issues_path), 50) else list())
+  invisible(TRUE)
+}
+
+job_scan <- function(cfg) {
+  pd_emit("stage", stage = "scan", label = "Scanning recordings")
+  res <- with_log_events(pam_run_stage("01_scan", pam_scan_audio, cfg, force = isTRUE(job$force)))
+  if (res$status != "ok") return(list(status = "failed", message = "Scanning the recordings failed; see the log."))
+  emit_scan(cfg)
+  list(status = "ok", minutes = round(as.numeric(res$duration), 2))
+}
+
+job_scan_results <- function(cfg) {
+  emit_scan(cfg)
+  list(status = "ok")
+}
+
+filter_settings <- function(cfg) {
+  fc <- cfg$filter
+  master_path <- file.path(cfg$paths$metadata, "audio_master.csv")
+  input_gb <- if (file.exists(master_path)) {
+    m <- data.table::fread(master_path, select = intersect(c("file_size_b", "qc_pass"),
+                                                          names(data.table::fread(master_path, nrows = 0))))
+    if (all(c("file_size_b", "qc_pass") %in% names(m))) round(sum(m[qc_pass %in% TRUE, file_size_b], na.rm = TRUE) / 1024^3, 1) else NA
+  } else NA
+  list(enabled = isTRUE(fc$enabled), highpass_hz = fc$highpass_hz, order = fc$order,
+       workers = fc$workers, chunk_size = fc$chunk_size, output_folder = cfg$paths$filtered,
+       scanned = file.exists(master_path), input_gb = input_gb,
+       already_done = pd_checkpoint_count(file.path(cfg$paths$metadata, "02_filter.done")))
+}
+
+job_filter_info <- function(cfg) {
+  pd_emit("filter_info", settings = filter_settings(cfg))
+  list(status = "ok")
+}
+
+# High-pass filter all QC-passed recordings; progress like Detect.
+job_filter <- function(cfg) {
+  if (!file.exists(file.path(cfg$paths$metadata, "audio_master.csv"))) {
+    pd_emit("stage", stage = "scan", label = "Scanning recordings")
+    scan <- with_log_events(pam_run_stage("01_scan", pam_scan_audio, cfg))
+    if (scan$status != "ok") return(list(status = "failed", message = "Scanning the recordings failed; see the log."))
+  }
+  if (!isTRUE(cfg$filter$enabled)) {
+    return(list(status = "failed", message = "Filtering is turned off in config.yml (filter: enabled: false)."))
+  }
+  results_path <- file.path(cfg$paths$metadata, "02_filter_results.csv")
+  seen <- if (file.exists(results_path)) nrow(utils::read.csv(results_path)) else 0L
+  pd_emit("stage", stage = "filter", label = "Filtering recordings", run_dir = cfg$paths$filtered,
+          already_done = pd_checkpoint_count(file.path(cfg$paths$metadata, "02_filter.done")))
+  totals <- list(done = 0L, failed = 0L)
+  on_batch <- function(p) {
+    new <- pd_new_results(results_path, seen)
+    seen <<- new$seen
+    totals$done <<- totals$done + p$ok
+    totals$failed <<- totals$failed + p$failed
+    rows <- new$rows
+    if (!is.null(rows) && nrow(rows)) {
+      rows$ok <- rows$verified %in% TRUE
+      rows <- rows[, intersect(c("rel", "ok", "message"), names(rows)), drop = FALSE]
+    }
+    pd_emit("files", batch = p$batch, batches = p$batches,
+            done = totals$done, failed = totals$failed, detections = 0L, rows = rows)
+  }
+  res <- with_log_events(pam_run_stage("02_filter", pam_filter_audio, cfg), on_batch = on_batch)
+  out <- res$result
+  list(status = res$status,
+       message = if (res$status != "ok") "Filtering failed; see the log." else "",
+       run_dir = cfg$paths$filtered,
+       n_pending = out$n_pending, n_done = out$n_ok, n_failed = out$n_failed,
+       minutes = round(as.numeric(res$duration), 2))
+}
+
 job_detect <- function(cfg) {
   # Stage 1 first, if this project has not been scanned yet
   if (!file.exists(file.path(cfg$paths$metadata, "audio_master.csv"))) {
@@ -611,12 +726,17 @@ job_detect <- function(cfg) {
 }
 
 # Turn pamflow's log messages into events while `expr` runs.
+# Last ERROR line pamflow logged, so a failure message can say what went wrong.
+pd_state <- new.env()
+pd_state$last_error <- NULL
+
 with_log_events <- function(expr, on_batch = NULL) {
   withCallingHandlers(expr, message = function(m) {
     for (line in strsplit(sub("\n$", "", conditionMessage(m)), "\n", fixed = TRUE)[[1]]) {
       if (!nzchar(trimws(line))) next
       parts <- pd_split_log_line(line)
       pd_emit("log", level = parts$level, stage = parts$stage, text = parts$text)
+      if (identical(parts$level, "ERROR")) pd_state$last_error <- parts$text
       # progress reporting must never be able to stop pamflow's own work
       tryCatch({
         p <- pd_parse_log(parts$text)
@@ -637,6 +757,10 @@ result <- tryCatch(
   switch(job$job,
          inspect = job_inspect(cfg),
          config_save = job_config_save(cfg),
+         scan = job_scan(cfg),
+         scan_results = job_scan_results(cfg),
+         filter_info = job_filter_info(cfg),
+         filter = job_filter(cfg),
          detect = job_detect(cfg),
          process = job_process(cfg),
          process_results = job_process_results(cfg),
@@ -651,5 +775,10 @@ result <- tryCatch(
          list(status = "failed", message = paste("unknown job:", job$job))),
   error = function(e) list(status = "failed", message = conditionMessage(e)))
 
+if (!identical(result$status, "ok") && !is.null(pd_state$last_error) &&
+    grepl("see the log", result$message %||% "", fixed = TRUE)) {
+  result$message <- sub("see the log.", paste0("pamflow said: ", pd_state$last_error),
+                        result$message, fixed = TRUE)
+}
 do.call(pd_emit, c(list("finished"), result))
 quit(status = if (identical(result$status, "ok")) 0L else 1L)

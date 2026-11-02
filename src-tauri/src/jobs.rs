@@ -48,6 +48,21 @@ pub fn runtime_info(app: AppHandle) -> Value {
     }
 }
 
+/// Free space (in GB) on the drive holding `path`. If the folder does not
+/// exist yet, the nearest existing parent folder is used.
+#[tauri::command]
+pub fn free_space_gb(path: String) -> Option<f64> {
+    let mut p = std::path::PathBuf::from(path);
+    loop {
+        if p.exists() {
+            return fs4::available_space(&p).ok().map(|b| (b as f64) / 1024f64.powi(3));
+        }
+        if !p.pop() {
+            return None;
+        }
+    }
+}
+
 /// Start a job. `spec` is the job description for bridge/run_job.R
 /// (job, project, birdnet overrides, sample_n); the runtime folder is added here.
 /// Returns the job id; progress arrives as "job-event" messages.

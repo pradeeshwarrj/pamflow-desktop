@@ -18,6 +18,7 @@ pub fn run() {
         .manage(jobs::Jobs::default())
         .invoke_handler(tauri::generate_handler![
             jobs::runtime_info,
+            jobs::free_space_gb,
             jobs::start_job,
             jobs::stop_job,
             validation::save_validation_answer,

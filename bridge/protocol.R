@@ -50,23 +50,30 @@ pd_find_config <- function(project) {
 #' Recognise pamflow log lines the app turns into progress.
 #'
 #' Reads the text of pamflow's own log messages (pam_log), so it follows
-#' their wording in pamflow 0.6.0:
+#' their wording in pamflow 0.6.0 (Detect and Filter):
 #'   "birdnet 0.2.16; 63 files pending; input=..."      -> total
-#'   "nothing pending for this run"                       -> total 0
+#'   "123 files to filter (12.3 GB input; ..."            -> total
+#'   "nothing pending ..."                                -> total 0
 #'   "batch 2/8: 8 ok, 0 failed, 120 detections | ..."    -> batch done
+#'   "batch 2/8: 8 ok, 0 failed"                          -> batch done (filter)
 #' @return list(kind = "total"|"batch"|"other", ...)
 pd_parse_log <- function(text) {
+  # Detect: "birdnet 0.2.16; 63 files pending; ..."   Filter: "123 files to filter (12.3 GB input; ..."
   m <- regmatches(text, regexec("; ([0-9]+) files pending;", text))[[1]]
+  if (length(m) != 2) m <- regmatches(text, regexec("^([0-9]+) files to filter \\(", text))[[1]]
   if (length(m) == 2) return(list(kind = "total", n = as.integer(m[2])))
-  if (grepl("nothing pending for this run", text, fixed = TRUE)) {
+  if (grepl("nothing pending for this run", text, fixed = TRUE) ||
+      grepl("nothing pending; all files already filtered", text, fixed = TRUE)) {
     return(list(kind = "total", n = 0L))
   }
+  # Detect: "batch 2/8: 8 ok, 0 failed, 120 detections | ..."   Filter: "batch 2/8: 8 ok, 0 failed"
   m <- regmatches(text, regexec(
-    "batch ([0-9]+)/([0-9]+): ([0-9]+) ok, ([0-9]+) failed, ([0-9]+) detections", text))[[1]]
-  if (length(m) == 6) {
-    v <- as.integer(m[-1])
+    "batch ([0-9]+)/([0-9]+): ([0-9]+) ok, ([0-9]+) failed(, ([0-9]+) detections)?", text))[[1]]
+  if (length(m) >= 5 && nzchar(m[1])) {
+    v <- as.integer(m[2:5])
+    det <- if (length(m) >= 7 && nzchar(m[7])) as.integer(m[7]) else 0L
     return(list(kind = "batch", batch = v[1], batches = v[2], ok = v[3], failed = v[4],
-                detections = v[5]))
+                detections = det))
   }
   list(kind = "other")
 }

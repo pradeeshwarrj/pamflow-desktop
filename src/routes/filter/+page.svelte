@@ -1,6 +1,8 @@
-<!-- Not built yet: shows a placeholder in the approved layout. -->
+<!-- Filter step: live inside the app, demo in a plain browser. -->
 <script lang="ts">
-  import ComingSoon from '$lib/components/ComingSoon.svelte';
+  import { inApp } from '$lib/backend/tauri';
+  import FilterLive from '$lib/screens/FilterLive.svelte';
+  import FilterDemo from '$lib/screens/FilterDemo.svelte';
 </script>
 
-<ComingSoon stage="filter" />
+{#if inApp}<FilterLive />{:else}<FilterDemo />{/if}

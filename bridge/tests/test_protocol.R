@@ -11,6 +11,13 @@ p <- pd_parse_log("batch 2/8: 7 ok, 1 failed, 120 detections | 40.0 files/h | ET
 ok(p$kind == "batch" && p$batch == 2 && p$batches == 8 && p$ok == 7 && p$failed == 1 && p$detections == 120,
    "batch line parsed")
 ok(pd_parse_log("stage started")$kind == "other", "other lines ignored")
+p <- pd_parse_log("123 files to filter (12.3 GB input; filtered copies need about the same space in D:/f)")
+ok(p$kind == "total" && p$n == 123, "filter total")
+ok(pd_parse_log("nothing pending; all files already filtered")$n == 0, "filter nothing pending")
+p <- pd_parse_log("batch 3/9: 198 ok, 2 failed")
+ok(p$kind == "batch" && p$batch == 3 && p$batches == 9 && p$ok == 198 && p$failed == 2 && p$detections == 0,
+   "filter batch line parsed")
+ok(pd_parse_log("filtering finished: 400 ok, 2 failed of 402")$kind == "other", "filter finish line ignored")
 
 # log line splitting
 s <- pd_split_log_line("2026-11-01 10:00:00 [WARN] [03_detect] 2 files not found")

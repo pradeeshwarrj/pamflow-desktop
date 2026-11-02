@@ -7,6 +7,8 @@ import { processJob } from './process.svelte';
 import { validation } from './validation.svelte';
 import { occupancy } from './occupancy.svelte';
 import { report } from './report.svelte';
+import { scan } from './scan.svelte';
+import { filterInfo } from './filter.svelte';
 
 const STORAGE_KEY = 'pamflow-project-folder';
 
@@ -84,6 +86,9 @@ export async function openProject(folder: string): Promise<void> {
   occupancy.info = null;
   occupancy.model = null;
   report.preview = null;
+  scan.status = 'idle';
+  scan.summary = null;
+  filterInfo.settings = null;
   try {
     localStorage.setItem(STORAGE_KEY, folder);
   } catch {

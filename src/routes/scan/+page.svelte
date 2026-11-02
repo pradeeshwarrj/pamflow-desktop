@@ -1,6 +1,8 @@
-<!-- Not built yet: shows a placeholder in the approved layout. -->
+<!-- Scan step: live inside the app, demo in a plain browser. -->
 <script lang="ts">
-  import ComingSoon from '$lib/components/ComingSoon.svelte';
+  import { inApp } from '$lib/backend/tauri';
+  import ScanLive from '$lib/screens/ScanLive.svelte';
+  import ScanDemo from '$lib/screens/ScanDemo.svelte';
 </script>
 
-<ComingSoon stage="scan" />
+{#if inApp}<ScanLive />{:else}<ScanDemo />{/if}

@@ -7,6 +7,8 @@
   import { inApp } from '$lib/backend/tauri';
   import { project } from '$lib/backend/project.svelte';
   import { detectJob, isActive } from '$lib/backend/detect.svelte';
+  import { filterJob, filterInfo } from '$lib/backend/filter.svelte';
+  import { scan } from '$lib/backend/scan.svelte';
   import { processJob } from '$lib/backend/process.svelte';
   import { validation } from '$lib/backend/validation.svelte';
   import { occupancy } from '$lib/backend/occupancy.svelte';
@@ -23,7 +25,11 @@
     const f = project.facts;
     const out: Record<string, Status> = {};
     if (f) out.project = { done: true };
-    if (f?.scanned) out.scan = { done: true };
+    if (scan.status === 'scanning') out.scan = { note: '…' };
+    else if (f?.scanned || scan.summary?.available) out.scan = { done: true };
+    if (isActive(filterJob.status) && filterJob.total) {
+      out.filter = { note: `${Math.floor(((filterJob.done + filterJob.failed) / filterJob.total) * 100)}%` };
+    } else if (filterJob.status === 'finished' || (filterInfo.settings?.already_done ?? 0) > 0) out.filter = { done: true };
     if (isActive(detectJob.status) && detectJob.total) {
       out.detect = { note: `${Math.floor(((detectJob.done + detectJob.failed) / detectJob.total) * 100)}%` };
     } else if (detectJob.status === 'finished') out.detect = { done: true };
