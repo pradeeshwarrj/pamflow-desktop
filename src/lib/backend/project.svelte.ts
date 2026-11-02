@@ -10,12 +10,28 @@ import { report } from './report.svelte';
 
 const STORAGE_KEY = 'pamflow-project-folder';
 
+/** One editable setting from config.yml (or pamflow's default if the file does not set it). */
+export interface Setting {
+  section: string;
+  key: string;
+  kind: 'folder' | 'file' | 'text' | 'number' | 'integer' | 'integer_or_null' | 'boolean' | 'choice';
+  value: unknown;
+  in_file: boolean;
+}
+
 export interface ProjectFacts {
   config: string;
   root: string;
   audio_folder: string;
   audio_folder_found: boolean;
   n_audio: number | null;
+  audio_gb: number | null;
+  filename_example: { file: string; grid: string | null; start: string | null; valid: boolean; sample_size: number } | null;
+  n_unreadable_names: number | null;
+  n_deployments: number | null;
+  labels_found: boolean;
+  n_labels: number | null;
+  settings: Setting[];
   scanned: boolean;
   deployment_sheet: string;
   deployment_sheet_found: boolean;

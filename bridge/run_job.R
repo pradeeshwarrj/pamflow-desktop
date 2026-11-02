@@ -5,7 +5,7 @@
 #
 # job.json (written by the app):
 #   {
-#     "job": "inspect" | "detect" | "process" | "process_results" |
+#     "job": "inspect" | "config_save" | "detect" | "process" | "process_results" |
 #            "validation_state" | "validation_draw" | "validation_metrics" |
 #            "occupancy_build" | "occupancy_results" | "model_input" |
 #            "report_preview" | "report",
@@ -18,6 +18,7 @@
 #     "with_pool": true,                                      (validation_state: also count events)
 #     "response": "detection" | "counts", "standardize": false (model_input)
 #     "formats": ["html", "excel"]                            (report)
+#     "changes": [{"section": "birdnet", "key": "workers", "value": 8}]  (config_save)
 #   }
 #
 # Progress goes to stdout as "@@PAM {json}" lines (see protocol.R).
@@ -31,6 +32,7 @@ bridge_dir <- local({
   normalizePath(dirname(sub("^--file=", "", arg[1])), winslash = "/")
 })
 source(file.path(bridge_dir, "protocol.R"))
+source(file.path(bridge_dir, "config_edit.R"))
 `%||%` <- function(a, b) if (is.null(a)) b else a
 # no animated progress bars: the app shows progress from the events
 options(cli.progress_show_after = Inf, cli.dynamic = FALSE, cli.num_colors = 1)
@@ -41,6 +43,8 @@ if (length(args) != 1 || !file.exists(args[1])) {
   quit(status = 2L)
 }
 job <- jsonlite::fromJSON(args[1], simplifyVector = TRUE)
+# settings to save keep their own types (numbers, true/false, lists)
+job$changes <- jsonlite::fromJSON(args[1], simplifyVector = FALSE)$changes
 
 fail <- function(message, code = 1L) {
   pd_emit("finished", status = "failed", message = message)
@@ -72,34 +76,157 @@ if (is.null(cfg$birdnet$python_env) && nzchar(job$runtime %||% "")) {
 
 # ---- jobs ----------------------------------------------------------------
 
+# ---- project facts and settings -------------------------------------------
+
+# Settings the Project screen can edit: section, key and kind of value.
+EDITABLE <- list(
+  list("paths", "audio_standardized", "folder"),
+  list("paths", "deployment_sheet", "file"),
+  list("filenames", "timezone", "text"),
+  list("birdnet", "model_dir", "folder"),
+  list("birdnet", "classifier_name", "text"),
+  list("birdnet", "min_confidence", "number"),
+  list("birdnet", "workers", "integer_or_null"),
+  list("birdnet", "overlap_s", "number"),
+  list("birdnet", "input", "choice"),
+  list("birdnet", "run_id", "text"),
+  list("processing", "min_confidence", "number"),
+  list("processing", "drop_outside_deployment", "boolean"),
+  list("processing", "merge_gap_s", "number"),
+  list("occupancy", "occasion_length_days", "integer"),
+  list("occupancy", "min_effort_hours", "number"),
+  list("occupancy", "min_detections", "integer"),
+  list("occupancy", "run_id", "text"),
+  list("validation", "reviewer", "text"),
+  list("validation", "show_confidence", "boolean"),
+  list("report", "title", "text"),
+  list("report", "author", "text"))
+
+# Each editable setting: the value in config.yml (or pamflow's default) and
+# whether config.yml sets it itself.
+editable_settings <- function(config_path) {
+  raw <- tryCatch(yaml::read_yaml(config_path), error = function(e) list())
+  tpl <- system.file("extdata", "config_template.yml", package = "pamflow")
+  defaults <- if (nzchar(tpl)) yaml::read_yaml(tpl) else list()
+  lapply(EDITABLE, function(e) {
+    in_file <- !is.null(raw[[e[[1]]]]) && e[[2]] %in% names(raw[[e[[1]]]])
+    value <- if (in_file) raw[[e[[1]]]][[e[[2]]]] else defaults[[e[[1]]]][[e[[2]]]]
+    list(section = e[[1]], key = e[[2]], kind = e[[3]], value = value, in_file = in_file)
+  })
+}
+
 job_inspect <- function(cfg) {
   audio_dir <- cfg$paths$audio_standardized
-  n_audio <- if (dir.exists(audio_dir)) length(pam_list_audio(audio_dir)) else NA_integer_
+  files <- if (dir.exists(audio_dir)) pam_list_audio(audio_dir) else character()
   bc <- cfg$birdnet
   model_dir <- bc$model_dir
   if (!is.null(model_dir) && !fs::is_absolute_path(model_dir)) {
     model_dir <- file.path(cfg$paths$project_root, model_dir)
   }
-  model_file <- if (!is.null(model_dir)) file.path(model_dir, paste0(bc$classifier_name, ".tflite")) else NA
+  name <- sub("\\.tflite$", "", bc$classifier_name %||% "", ignore.case = TRUE)
+  model_file <- if (!is.null(model_dir)) file.path(model_dir, paste0(name, ".tflite")) else NA
+  labels_file <- if (!is.null(model_dir)) file.path(model_dir, paste0(name, "_Labels.txt")) else NA
+
+  # How the file name pattern reads a few real files.
+  example <- NULL; n_unreadable_names <- NA_integer_
+  if (length(files)) {
+    sample_files <- utils::head(files, 200)
+    parsed <- tryCatch(pamflow:::pam_parse_filenames(sample_files, cfg$filenames$pattern, cfg$filenames$timezone),
+                       error = function(e) NULL)
+    if (!is.null(parsed)) {
+      n_unreadable_names <- sum(!parsed$valid_name)
+      first <- parsed[1]
+      example <- list(file = first$file_name, grid = first$grid,
+                      start = if (isTRUE(first$valid_name)) format(first$start_time, "%Y-%m-%d %H:%M:%S") else NA,
+                      valid = isTRUE(first$valid_name), sample_size = nrow(parsed))
+    }
+  }
+  sheet <- cfg$paths$deployment_sheet %||% ""
+  n_deployments <- if (file.exists(sheet)) {
+    tryCatch(nrow(data.table::fread(sheet, header = isTRUE(cfg$deployments$has_header %||% TRUE),
+                                    fill = TRUE, colClasses = "character")), error = function(e) NA_integer_)
+  } else NA_integer_
+
   pd_emit("project",
           config = found$config,
           root = found$root,
           audio_folder = audio_dir,
           audio_folder_found = dir.exists(audio_dir),
-          n_audio = n_audio,
+          n_audio = if (dir.exists(audio_dir)) length(files) else NA_integer_,
+          audio_gb = if (length(files)) round(sum(file.size(files), na.rm = TRUE) / 1024^3, 2) else NA_real_,
+          filename_example = example,
+          n_unreadable_names = n_unreadable_names,
           scanned = file.exists(file.path(cfg$paths$metadata, "audio_master.csv")),
-          deployment_sheet = cfg$paths$deployment_sheet,
-          deployment_sheet_found = file.exists(cfg$paths$deployment_sheet %||% ""),
+          deployment_sheet = sheet,
+          deployment_sheet_found = file.exists(sheet),
+          n_deployments = n_deployments,
           model_file = model_file,
           model_found = isTRUE(file.exists(model_file)),
+          labels_found = isTRUE(file.exists(labels_file)),
+          n_labels = if (isTRUE(file.exists(labels_file))) length(readLines(labels_file, warn = FALSE)) else NA_integer_,
           run_id = bc$run_id,
           min_confidence = bc$min_confidence,
           workers = bc$workers,
           cores_physical = parallel::detectCores(logical = FALSE),
           cores_logical = parallel::detectCores(logical = TRUE),
           detections_folder = cfg$paths$detections,
-          processing = processing_settings(cfg))
+          processing = processing_settings(cfg),
+          settings = editable_settings(found$config))
   list(status = "ok")
+}
+
+# Save edited settings into config.yml, keeping its comments and layout.
+# The new file is checked with pamflow's own config reader before it
+# replaces the old one, and the old one is kept as a dated backup.
+job_config_save <- function(cfg) {
+  allowed <- vapply(EDITABLE, function(e) paste(e[[1]], e[[2]], sep = "."), "")
+  changes <- job$changes
+  if (!length(changes)) return(list(status = "ok", message = "Nothing to save."))
+  for (ch in changes) {
+    if (!paste(ch$section, ch$key, sep = ".") %in% allowed) {
+      return(list(status = "failed", message = paste("This setting cannot be changed here:", ch$section, ch$key)))
+    }
+  }
+  path <- found$config
+  bytes <- readBin(path, "raw", file.size(path))
+  crlf <- length(bytes) > 1 && any(bytes[-1] == as.raw(10) & bytes[-length(bytes)] == as.raw(13))
+  lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
+  new_lines <- pd_yaml_apply(lines, changes)
+
+  write_lines <- function(x, file) {
+    con <- file(file, open = "wb")
+    on.exit(close(con))
+    writeBin(charToRaw(enc2utf8(paste0(paste(x, collapse = if (crlf) "\r\n" else "\n"), if (crlf) "\r\n" else "\n"))), con)
+  }
+
+  # check the new file with pamflow before replacing anything
+  check <- file.path(dirname(path), paste0(".", basename(path), ".app-check.yml"))
+  write_lines(new_lines, check)
+  on.exit(unlink(check), add = TRUE)
+  problem <- tryCatch({ pam_config_read(check); NULL }, error = function(e) conditionMessage(e))
+  if (!is.null(problem)) {
+    return(list(status = "failed", message = paste("Not saved: pamflow would not accept these settings.", problem)))
+  }
+  saved <- yaml::read_yaml(check)
+  for (ch in changes) {
+    got <- saved[[ch$section]][[ch$key]]
+    want <- ch$value
+    if (is.list(want)) want <- unlist(want)
+    if (!identical(unlist(got) %||% NULL, want %||% NULL) && !isTRUE(all.equal(unlist(got), want))) {
+      return(list(status = "failed", message = sprintf("Not saved: %s: %s would not be read back correctly.", ch$section, ch$key)))
+    }
+  }
+
+  backup_dir <- file.path(dirname(path), "backups")
+  dir.create(backup_dir, showWarnings = FALSE)
+  backup <- file.path(backup_dir, sprintf("%s.%s.bak", basename(path), format(Sys.time(), "%Y%m%d-%H%M%S")))
+  if (!file.copy(path, backup)) return(list(status = "failed", message = "Not saved: could not make a backup copy."))
+  write_lines(new_lines, path)
+  pd_emit("config_saved", n = length(changes), backup = backup)
+
+  # read the saved file and report the project again
+  cfg <- pam_config_read(path)
+  job_inspect(cfg)
 }
 
 # The cleaning rules from config.yml, for display.
@@ -509,6 +636,7 @@ pd_emit("started", job = job$job, project = found$root,
 result <- tryCatch(
   switch(job$job,
          inspect = job_inspect(cfg),
+         config_save = job_config_save(cfg),
          detect = job_detect(cfg),
          process = job_process(cfg),
          process_results = job_process_results(cfg),

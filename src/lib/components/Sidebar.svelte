@@ -3,10 +3,44 @@
   import Logo from './Logo.svelte';
   import ThemeSwitch from './ThemeSwitch.svelte';
   import { stages, accentStyle } from '$lib/config/stages';
-  import { stageStatus, project } from '$lib/mock/demo';
+  import { stageStatus as demoStatus, project as demoProject } from '$lib/mock/demo';
+  import { inApp } from '$lib/backend/tauri';
+  import { project } from '$lib/backend/project.svelte';
+  import { detectJob, isActive } from '$lib/backend/detect.svelte';
+  import { processJob } from '$lib/backend/process.svelte';
+  import { validation } from '$lib/backend/validation.svelte';
+  import { occupancy } from '$lib/backend/occupancy.svelte';
+  import { report } from '$lib/backend/report.svelte';
   import { t } from '$lib/i18n';
 
   let { current }: { current: string } = $props();
+
+  type Status = { done?: boolean; note?: string };
+
+  // Inside the app: what is known about this project. In a plain browser: the demo.
+  const status = $derived.by((): Record<string, Status> => {
+    if (!inApp) return demoStatus;
+    const f = project.facts;
+    const out: Record<string, Status> = {};
+    if (f) out.project = { done: true };
+    if (f?.scanned) out.scan = { done: true };
+    if (isActive(detectJob.status) && detectJob.total) {
+      out.detect = { note: `${Math.floor(((detectJob.done + detectJob.failed) / detectJob.total) * 100)}%` };
+    } else if (detectJob.status === 'finished') out.detect = { done: true };
+    if (processJob.summary?.available) out.process = { done: true };
+    const samples = validation.info?.samples ?? [];
+    if (samples.length) {
+      const answered = samples.filter((s) => validation.answers[s.sample_id]).length;
+      out.validate = answered === samples.length ? { done: true } : { note: `${answered}/${samples.length}` };
+    }
+    if (occupancy.info?.available) out.occupancy = { done: true };
+    if (report.preview?.files.some((x) => x.exists)) out.report = { done: true };
+    return out;
+  });
+
+  const projectName = $derived(
+    inApp ? (project.facts?.root ?? project.folder).split(/[\\/]/).filter(Boolean).pop() ?? '' : demoProject.name
+  );
 </script>
 
 <nav aria-label={t('common.workflowSteps')}>
@@ -14,26 +48,26 @@
     <Logo />
     <div class="names">
       <span class="app">{t('app.name')}</span>
-      <span class="project">{project.name}</span>
+      <span class="project">{projectName}</span>
     </div>
   </div>
 
   <ol class="steps">
     {#each stages as stage (stage.id)}
-      {@const status = stageStatus[stage.id] ?? {}}
+      {@const st = status[stage.id] ?? {}}
       {@const active = stage.id === current}
       <li>
         <a
           href={stage.path}
           class="step"
           class:active
-          class:done={status.done}
+          class:done={st.done}
           style={accentStyle(stage.palette)}
           aria-current={active ? 'page' : undefined}
         >
           <span class="dot"></span>
           <span class="name">{t(`stages.${stage.id}`)}</span>
-          <span class="note">{status.done ? t('common.done') : (status.note ?? '')}</span>
+          <span class="note">{st.done ? t('common.done') : (st.note ?? '')}</span>
         </a>
       </li>
     {/each}

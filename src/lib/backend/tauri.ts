@@ -25,7 +25,7 @@ export interface JobSpec {
     | 'inspect' | 'detect' | 'process' | 'process_results'
     | 'validation_state' | 'validation_draw' | 'validation_metrics'
     | 'occupancy_build' | 'occupancy_results' | 'model_input'
-    | 'report_preview' | 'report';
+    | 'report_preview' | 'report' | 'config_save';
   project: string;
   birdnet?: Record<string, unknown>;
   sample_n?: number | null;
@@ -36,6 +36,7 @@ export interface JobSpec {
   response?: 'detection' | 'counts';
   standardize?: boolean;
   formats?: string[];
+  changes?: { section: string; key: string; value: unknown }[];
 }
 
 export function runtimeInfo(): Promise<RuntimeInfo> {
@@ -61,6 +62,13 @@ export function onJobEvent(handler: (id: string, event: JobEvent) => void): Prom
 export async function pickFolder(title: string): Promise<string | null> {
   const { open } = await import('@tauri-apps/plugin-dialog');
   const picked = await open({ directory: true, multiple: false, title });
+  return typeof picked === 'string' ? picked : null;
+}
+
+/** Ask the user for a file. `extensions` like ['csv', 'xlsx']. Returns null if they cancel. */
+export async function pickFile(title: string, name: string, extensions: string[]): Promise<string | null> {
+  const { open } = await import('@tauri-apps/plugin-dialog');
+  const picked = await open({ directory: false, multiple: false, title, filters: [{ name, extensions }] });
   return typeof picked === 'string' ? picked : null;
 }
 
