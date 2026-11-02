@@ -4,8 +4,8 @@
 # On every operating system this builds the runtime, packs it with
 # pixi-pack (the conda packages + Python wheels) plus one archive of the R
 # packages that are not conda packages (tuneR, seewave, pamflow, ...), then
-# unpacks both into a NEW folder whose path has a space in it - as the app
-# will do on the user's computer - and runs the smoke test from there.
+# unpacks both into a NEW folder - as the app will do on the user's
+# computer - and runs the smoke test from there.
 # The job summary shows the pack sizes and how long unpacking took.
 #
 # Run it from the Actions tab ("Run workflow"); it also runs when this file
@@ -43,9 +43,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # the folder the runtime is unpacked into, with a space in its path on purpose
+      # The folder the runtime is unpacked into. On Windows its path has a space on
+      # purpose (user names often do). On macOS and Linux R cannot live in a path with
+      # spaces, so the app uses ~/Library/pamflow (macOS) or ~/.local/share/pamflow (Linux),
+      # which have none; the test does the same.
       - name: Choose the unpack folder
-        run: echo "TARGET=$RUNNER_TEMP/pamflow test/runtime" >> "$GITHUB_ENV"
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "TARGET=$RUNNER_TEMP/pamflow test/runtime" >> "$GITHUB_ENV"
+          else
+            echo "TARGET=$RUNNER_TEMP/pamflow-test/runtime" >> "$GITHUB_ENV"
+          fi
 
       - name: Build the runtime (pixi install)
         uses: prefix-dev/setup-pixi@v0.9.3

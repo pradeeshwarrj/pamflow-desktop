@@ -29,10 +29,15 @@ def main() -> int:
     run_env = dict(os.environ, R_LIBS_USER="NULL", R_LIBS="", R_PROFILE_USER="NULL",
                    R_ENVIRON_USER="NULL", CONDA_PREFIX=str(env))
     run_env.pop("R_HOME", None)
-    library = Path(subprocess.run(
+    res = subprocess.run(
         [str(rscript(env)), "-e", "cat(normalizePath(.libPaths()[1], winslash = '/'))"],
-        check=True, capture_output=True, text=True, env=run_env,
-    ).stdout.strip())
+        capture_output=True, text=True, env=run_env,
+    )
+    if res.returncode != 0:
+        print(f"The runtime's R did not start ({rscript(env)}):")
+        print(res.stdout + res.stderr)
+        return 1
+    library = Path(res.stdout.strip())
     with tarfile.open(archive, "r:gz") as tar:
         names = sorted({m.name.split("/", 1)[0] for m in tar.getmembers()})
         for name in names:
