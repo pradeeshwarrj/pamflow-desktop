@@ -1,4 +1,4 @@
-<!-- Step 2 · Scan: read and check the recordings (pamflow Stage 1). -->
+<!-- Scan step: read and check the recordings (pamflow Stage 1). -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';

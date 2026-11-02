@@ -1,4 +1,4 @@
-<!-- Step 6 · Validate, connected to pamflow's validation files. -->
+<!-- Validate step, connected to pamflow's validation files. -->
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';

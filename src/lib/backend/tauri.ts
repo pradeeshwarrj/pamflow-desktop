@@ -26,7 +26,8 @@ export interface JobSpec {
     | 'validation_state' | 'validation_draw' | 'validation_metrics'
     | 'occupancy_build' | 'occupancy_results' | 'model_input'
     | 'report_preview' | 'report' | 'config_save'
-    | 'scan' | 'scan_results' | 'filter_info' | 'filter';
+    | 'scan' | 'scan_results' | 'filter_info' | 'filter'
+    | 'std_state' | 'std_plan' | 'standardize';
   project: string;
   birdnet?: Record<string, unknown>;
   sample_n?: number | null;
@@ -39,6 +40,7 @@ export interface JobSpec {
   formats?: string[];
   changes?: { section: string; key: string; value: unknown }[];
   filter?: Record<string, unknown>;
+  std?: Record<string, unknown>;
   force?: boolean;
 }
 
@@ -73,6 +75,11 @@ export async function pickFile(title: string, name: string, extensions: string[]
   const { open } = await import('@tauri-apps/plugin-dialog');
   const picked = await open({ directory: false, multiple: false, title, filters: [{ name, extensions }] });
   return typeof picked === 'string' ? picked : null;
+}
+
+/** Free space (GB) on the drive holding `path` (or its nearest existing parent); null if unknown. */
+export function freeSpace(path: string): Promise<number | null> {
+  return invoke<number | null>('free_space_gb', { path });
 }
 
 /** Show a folder in Explorer / Finder. */

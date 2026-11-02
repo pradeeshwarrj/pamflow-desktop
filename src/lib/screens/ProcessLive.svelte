@@ -1,4 +1,4 @@
-<!-- Step 5 · Process, connected to pamflow through the analysis engine. -->
+<!-- Process step, connected to pamflow through the analysis engine. -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';

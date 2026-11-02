@@ -1,5 +1,5 @@
 <!--
-  Live view of a long-running job (Detect, Filter): progress panel with Stop,
+  Live view of a long-running job (Standardize, Filter, Detect): progress panel with Stop,
   totals, and the list of finished files (or the full log).
 -->
 <script lang="ts">
@@ -16,7 +16,7 @@
 
   let { job, kind, onstop, minutesLeft, minutesElapsed }: {
     job: LongJobState;
-    kind: 'detect' | 'filter';
+    kind: 'detect' | 'filter' | 'standardize';
     onstop: () => void;
     minutesLeft: () => number | null;
     minutesElapsed: () => number;
@@ -31,13 +31,17 @@
 
   const active = $derived(isActive(job.status));
   const finishedFiles = $derived(job.done + job.failed);
-  const percent = $derived(job.total ? (finishedFiles / job.total) * 100 : 0);
+  const preparing = $derived(job.status === 'scanning' && job.prepTotal > 0);
+  const percent = $derived(
+    preparing ? (job.prepDone / job.prepTotal) * 100 : job.total ? (finishedFiles / job.total) * 100 : 0
+  );
   const left = $derived.by(() => { void tick; return minutesLeft(); });
   const elapsed = $derived.by(() => { void tick; return minutesElapsed(); });
 
   const statusText = $derived(
     ({
-      idle: '', starting: t('detect.starting'), scanning: t('detect.scanning'),
+      idle: '', starting: t('detect.starting'),
+      scanning: kind === 'standardize' ? t('standardize.reading') : t('detect.scanning'),
       running: t('detect.running'), stopping: t('detect.stopping'), stopped: t('detect.stopped'),
       finished: t('detect.finished'), failed: t('detect.failedStatus')
     })[job.status]
@@ -48,8 +52,10 @@
   <div class="top">
     <div class="count">
       <span class="status">{statusText}</span>
-      {#if job.total !== null}
-        <span class="big">{finishedFiles} <small>{t('detect.ofFiles', { n: job.total })}</small></span>
+      {#if preparing}
+        <span class="big">{job.prepDone.toLocaleString()} <small>{t('standardize.ofRead', { n: job.prepTotal.toLocaleString() })}</small></span>
+      {:else if job.total !== null}
+        <span class="big">{finishedFiles} <small>{t('detect.ofFiles', { n: job.total.toLocaleString() })}</small></span>
       {:else}
         <span class="big"><small>{statusText}</small></span>
       {/if}
@@ -105,6 +111,8 @@
             <Badge round palette="peach">{t('detect.failedFile')}{row.message ? ` · ${row.message}` : ''}</Badge>
           {:else if kind === 'filter'}
             <Badge round palette="mint">{t('filter.fileDone')}</Badge>
+          {:else if kind === 'standardize'}
+            <Badge round palette="mint">{t(`standardize.rowDone.${row.message === 'converted' ? 'converted' : 'copied'}`)}</Badge>
           {:else if (row.n_detections ?? 0) > 0}
             <Badge round palette="mint">{t('detect.nDetections', { n: row.n_detections ?? 0 })}</Badge>
           {:else}

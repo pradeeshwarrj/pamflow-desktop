@@ -9,6 +9,7 @@
 /** Sidebar status for each step: finished, or a short progress note. */
 export const stageStatus: Record<string, { done?: boolean; note?: string }> = {
   project: { done: true },
+  standardize: { done: true },
   scan: { done: true },
   filter: { done: true },
   detect: { note: '65%' },

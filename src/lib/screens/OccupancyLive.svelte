@@ -1,4 +1,4 @@
-<!-- Step 7 · Occupancy, connected to pamflow through the analysis engine. -->
+<!-- Occupancy step, connected to pamflow through the analysis engine. -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';

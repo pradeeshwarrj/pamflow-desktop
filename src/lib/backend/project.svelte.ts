@@ -9,6 +9,7 @@ import { occupancy } from './occupancy.svelte';
 import { report } from './report.svelte';
 import { scan } from './scan.svelte';
 import { filterInfo } from './filter.svelte';
+import { standardize } from './standardize.svelte';
 
 const STORAGE_KEY = 'pamflow-project-folder';
 
@@ -89,6 +90,7 @@ export async function openProject(folder: string): Promise<void> {
   scan.status = 'idle';
   scan.summary = null;
   filterInfo.settings = null;
+  standardize.state = null;
   try {
     localStorage.setItem(STORAGE_KEY, folder);
   } catch {

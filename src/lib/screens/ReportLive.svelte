@@ -1,4 +1,4 @@
-<!-- Step 8 · Report, written by pamflow through the analysis engine. -->
+<!-- Report step, written by pamflow through the analysis engine. -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import PageHeader from '$lib/components/PageHeader.svelte';

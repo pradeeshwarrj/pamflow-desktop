@@ -1,5 +1,5 @@
 /**
- * Step 7 · Occupancy: detection histories (pamflow Stage 6) and model input
+ * Occupancy step: detection histories (pamflow Stage 6) and model input
  * for unmarked / spOccupancy / ubms (Stage 7). pamflow prepares the data;
  * models are fitted by the user in those packages.
  */

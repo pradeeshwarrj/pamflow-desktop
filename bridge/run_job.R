@@ -5,7 +5,7 @@
 #
 # job.json (written by the app):
 #   {
-#     "job": "inspect" | "config_save" | "scan" | "scan_results" | "filter_info" | "filter" |
+#     "job": "inspect" | "config_save" | "std_state" | "std_plan" | "standardize" | "scan" | "scan_results" | "filter_info" | "filter" |
 #            "detect" | "process" | "process_results" |
 #            "validation_state" | "validation_draw" | "validation_metrics" |
 #            "occupancy_build" | "occupancy_results" | "model_input" |
@@ -14,6 +14,7 @@
 #     "runtime": "<bundled runtime folder>",
 #     "birdnet": { "workers": 4, "min_confidence": 0.3 },   (optional overrides)
 #     "filter": { "workers": 4 },                            (optional overrides)
+#     "std": { "target_format": "flac" },                     (Stage 00 overrides, optional)
 #     "force": true                                           (scan: re-read every header)
 #     "sample_n": null,                                       (detect: test on N files)
 #     "strategy": "stratified" | "random" | "rare",           (validation_draw)
@@ -36,6 +37,7 @@ bridge_dir <- local({
 })
 source(file.path(bridge_dir, "protocol.R"))
 source(file.path(bridge_dir, "config_edit.R"))
+source(file.path(bridge_dir, "standardize.R"))
 `%||%` <- function(a, b) if (is.null(a)) b else a
 # no animated progress bars: the app shows progress from the events
 options(cli.progress_show_after = Inf, cli.dynamic = FALSE, cli.num_colors = 1)
@@ -84,6 +86,17 @@ if (is.null(cfg$birdnet$python_env) && nzchar(job$runtime %||% "")) {
 
 # Settings the Project screen can edit: section, key and kind of value.
 EDITABLE <- list(
+  list("paths", "audio_raw", "folder"),
+  list("paths", "audio_isolated", "folder"),
+  list("standardization", "target_format", "choice"),
+  list("standardization", "target_hz", "number"),
+  list("standardization", "channels", "integer"),
+  list("standardization", "min_duration_s", "number"),
+  list("standardization", "organize_folders", "choice"),
+  list("standardization", "rename_strategy", "choice"),
+  list("standardization", "prefix", "text"),
+  list("standardization", "isolate_non_audio", "boolean"),
+  list("standardization", "isolate_short", "boolean"),
   list("paths", "audio_standardized", "folder"),
   list("paths", "deployment_sheet", "file"),
   list("filenames", "timezone", "text"),
@@ -736,7 +749,10 @@ with_log_events <- function(expr, on_batch = NULL) {
       if (!nzchar(trimws(line))) next
       parts <- pd_split_log_line(line)
       pd_emit("log", level = parts$level, stage = parts$stage, text = parts$text)
-      if (identical(parts$level, "ERROR")) pd_state$last_error <- parts$text
+      if (identical(parts$level, "ERROR")) {
+        pd_state$last_error <- parts$text
+        tryCatch(std_on_error(parts$text), error = function(e) NULL)
+      }
       # progress reporting must never be able to stop pamflow's own work
       tryCatch({
         p <- pd_parse_log(parts$text)
@@ -757,6 +773,9 @@ result <- tryCatch(
   switch(job$job,
          inspect = job_inspect(cfg),
          config_save = job_config_save(cfg),
+         std_state = job_std_state(cfg),
+         std_plan = job_std_plan(cfg),
+         standardize = job_standardize(cfg),
          scan = job_scan(cfg),
          scan_results = job_scan_results(cfg),
          filter_info = job_filter_info(cfg),

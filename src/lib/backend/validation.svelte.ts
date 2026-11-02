@@ -1,5 +1,5 @@
 /**
- * Step 6 · Validate: samples to review, answers, drawing new rounds and
+ * Validate step: samples to review, answers, drawing new rounds and
  * precision. Files are pamflow's own (detections/<run>/validation/), so
  * reviewing here or in pamflow's Shiny app gives the same results.
  */

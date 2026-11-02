@@ -20,6 +20,7 @@ export interface Stage {
 
 export const stages: Stage[] = [
   { id: 'project',   path: '/',          palette: 'sky' },
+  { id: 'standardize', path: '/standardize', palette: 'butter' },
   { id: 'scan',      path: '/scan',      palette: 'mint' },
   { id: 'filter',    path: '/filter',    palette: 'aqua' },
   { id: 'detect',    path: '/detect',    palette: 'lavender' },
@@ -35,7 +36,7 @@ export function stageForPath(pathname: string): Stage {
   return stages.find((s) => s.path === clean) ?? stages[0];
 }
 
-/** 1-based step number, used in "Step 4 · Detect". */
+/** 1-based step number, used in "Detect step". */
 export function stageNumber(id: string): number {
   return stages.findIndex((s) => s.id === id) + 1;
 }

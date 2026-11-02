@@ -9,6 +9,7 @@
   import { detectJob, isActive } from '$lib/backend/detect.svelte';
   import { filterJob, filterInfo } from '$lib/backend/filter.svelte';
   import { scan } from '$lib/backend/scan.svelte';
+  import { stdJob, standardize } from '$lib/backend/standardize.svelte';
   import { processJob } from '$lib/backend/process.svelte';
   import { validation } from '$lib/backend/validation.svelte';
   import { occupancy } from '$lib/backend/occupancy.svelte';
@@ -25,6 +26,10 @@
     const f = project.facts;
     const out: Record<string, Status> = {};
     if (f) out.project = { done: true };
+    if (isActive(stdJob.status)) {
+      out.standardize = stdJob.total
+        ? { note: `${Math.floor(((stdJob.done + stdJob.failed) / stdJob.total) * 100)}%` } : { note: '…' };
+    } else if (stdJob.status === 'finished' || standardize.state?.last_run.available) out.standardize = { done: true };
     if (scan.status === 'scanning') out.scan = { note: '…' };
     else if (f?.scanned || scan.summary?.available) out.scan = { done: true };
     if (isActive(filterJob.status) && filterJob.total) {

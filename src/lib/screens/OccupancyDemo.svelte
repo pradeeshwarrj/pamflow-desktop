@@ -1,4 +1,4 @@
-<!-- Step 7 · Occupancy: demo version, shown when the interface runs in a plain browser (pnpm dev). -->
+<!-- Occupancy step: demo version, shown when the interface runs in a plain browser (pnpm dev). -->
 <script lang="ts">
   import PageHeader from '$lib/components/PageHeader.svelte';
   import OccupancyResults from './OccupancyResults.svelte';

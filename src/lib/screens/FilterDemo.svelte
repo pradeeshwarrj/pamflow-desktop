@@ -1,4 +1,4 @@
-<!-- Step 3 · Filter: demo version for a plain browser (pnpm dev). Numbers are made up. -->
+<!-- Filter step: demo version for a plain browser (pnpm dev). Numbers are made up. -->
 <script lang="ts">
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Card from '$lib/components/Card.svelte';

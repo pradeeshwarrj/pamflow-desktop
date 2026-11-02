@@ -1,5 +1,5 @@
 /**
- * Step 8 · Report: pamflow's HTML and Excel report of the run.
+ * Report step: pamflow's HTML and Excel report of the run.
  * (PDF is not offered: pamflow's PDF needs LaTeX, which the app does not bundle.)
  */
 import { runJob } from './tauri';

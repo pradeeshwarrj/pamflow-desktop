@@ -1,5 +1,5 @@
 /**
- * Step 3 · Filter: high-pass filter the recordings with ffmpeg (pamflow Stage 2).
+ * Filter step: high-pass filter the recordings with ffmpeg (pamflow Stage 2).
  * Built on the shared long-job runner (longjob.svelte.ts).
  */
 import { createLongJob } from './longjob.svelte';

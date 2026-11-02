@@ -32,6 +32,21 @@ export function resetDraft() {
   settings.error = '';
 }
 
+let shownFor = '';
+/**
+ * Call from an $effect on screens that edit settings: loads the saved values
+ * into the form when a project opens or its config.yml changes, and leaves
+ * unsaved edits alone otherwise (so they survive moving between screens).
+ */
+export function syncDraft() {
+  const f = project.facts;
+  const key = f ? `${f.config}|${JSON.stringify(f.settings)}` : '';
+  if (key && key !== shownFor) {
+    shownFor = key;
+    resetDraft();
+  }
+}
+
 /** Settings whose value on screen differs from config.yml. */
 export function changedSettings(): { section: string; key: string; value: unknown }[] {
   const orig = originals();

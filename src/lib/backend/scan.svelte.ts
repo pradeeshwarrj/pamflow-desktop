@@ -1,5 +1,5 @@
 /**
- * Step 2 · Scan: read every recording's header, check quality and match the
+ * Scan step: read every recording's header, check quality and match the
  * deployment sheet (pamflow Stage 1).
  */
 import { runJob } from './tauri';

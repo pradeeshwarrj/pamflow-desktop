@@ -1,5 +1,5 @@
 /**
- * Step 5 · Process: run pamflow's cleaning (Stage 4) and hold its summary.
+ * Process step: run pamflow's cleaning (Stage 4) and hold its summary.
  */
 import { runJob, type JobEvent } from './tauri';
 

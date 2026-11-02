@@ -1,7 +1,6 @@
-<!-- Step 3 · Filter: high-pass filter the recordings (pamflow Stage 2). -->
+<!-- Filter step: high-pass filter the recordings (pamflow Stage 2). -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Card from '$lib/components/Card.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -9,6 +8,7 @@
   import Pills from '$lib/components/Pills.svelte';
   import Icon from '$lib/components/Icon.svelte';
   import LongJobPanel from '$lib/components/LongJobPanel.svelte';
+  import { freeSpace } from '$lib/backend/tauri';
   import { project, refreshProject } from '$lib/backend/project.svelte';
   import { detectJob, isActive } from '$lib/backend/detect.svelte';
   import {
@@ -25,7 +25,7 @@
 
   const s = $derived(filterInfo.settings);
   $effect(() => {
-    if (s?.output_folder) invoke<number | null>('free_space_gb', { path: s.output_folder }).then((g) => (freeGb = g ?? null));
+    if (s?.output_folder) freeSpace(s.output_folder).then((g) => (freeGb = g ?? null));
   });
 
   const physical = $derived(project.facts?.cores_physical ?? 4);

@@ -1,4 +1,4 @@
-<!-- Step 1 · Project: open a pamflow project and edit its config.yml. -->
+<!-- Project step: open a pamflow project and edit its config.yml. -->
 <script lang="ts">
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Card from '$lib/components/Card.svelte';
@@ -7,22 +7,16 @@
   import Badge from '$lib/components/Badge.svelte';
   import Button from '$lib/components/Button.svelte';
   import ProjectPicker from './ProjectPicker.svelte';
-  import { pickFolder, pickFile, showFolder } from '$lib/backend/tauri';
+  import SaveBar from '$lib/components/SaveBar.svelte';
+  import { pickFolder, pickFile } from '$lib/backend/tauri';
   import { project } from '$lib/backend/project.svelte';
-  import { settings, resetDraft, changedSettings, saveSettings, id } from '$lib/backend/settings.svelte';
+  import { settings, syncDraft, id } from '$lib/backend/settings.svelte';
   import { t } from '$lib/i18n';
 
   const f = $derived(project.facts);
 
   // Load the saved values into the form whenever the project facts change.
-  let shownFor = '';
-  $effect(() => {
-    const key = f ? `${f.config}|${JSON.stringify(f.settings)}` : '';
-    if (key && key !== shownFor) {
-      shownFor = key;
-      resetDraft();
-    }
-  });
+  $effect(syncDraft);
 
   const get = (section: string, key: string) => settings.draft[id(section, key)];
   const set = (section: string, key: string, value: unknown) => (settings.draft[id(section, key)] = value);
@@ -39,8 +33,6 @@
   const str = (section: string, key: string) => (get(section, key) ?? '') as string;
   const slash = (p: string) => p.replace(/\\/g, '/');
 
-  const changes = $derived(changedSettings());
-  const nChanges = $derived(changes.length);
 
   // ---- worker choices: "Auto" (pamflow: half the physical cores) or a number ----
   const physical = $derived(f?.cores_physical ?? 4);
@@ -175,6 +167,26 @@
       </div>
     </Card>
 
+    <Card title={t('settings.filterTitle')} hint={t('settings.filterHint')}>
+      <label class="check"><input type="checkbox" checked={Boolean(get('filter', 'enabled'))}
+        onchange={(e) => set('filter', 'enabled', e.currentTarget.checked)} /> {t('settings.filterOn')}</label>
+      <div class="pair">
+        <div>
+          <label class="sub" for="s-hp">{t('settings.highpass')}</label>
+          <input id="s-hp" class="input" type="number" min="0" step="50" value={num('filter', 'highpass_hz')}
+            oninput={(e) => setNum('filter', 'highpass_hz', e.currentTarget.value)} />
+        </div>
+        <div>
+          <label class="sub" for="s-order">{t('settings.filterOrder')}</label>
+          <input id="s-order" class="input" type="number" min="1" max="12" step="1" value={num('filter', 'order')}
+            oninput={(e) => setNum('filter', 'order', e.currentTarget.value, true)} />
+        </div>
+      </div>
+      <label class="sub" for="s-filtered">{t('settings.filteredFolder')}</label>
+      <input id="s-filtered" class="input" value={str('paths', 'filtered')}
+        oninput={(e) => set('paths', 'filtered', e.currentTarget.value)} />
+    </Card>
+
     <Card title={t('settings.cleaning')} hint={t('settings.cleaningHint')}>
       <div class="pair">
         <div>
@@ -238,23 +250,7 @@
     </Card>
   </div>
 
-  <div class="savebar" class:dirty={nChanges > 0}>
-    {#if nChanges > 0}
-      <span>{t('settings.unsaved', { n: nChanges })}</span>
-      <div class="actions">
-        <Button variant="ghost" onclick={resetDraft} disabled={settings.saving}>{t('settings.discard')}</Button>
-        <Button variant="primary" onclick={saveSettings} disabled={settings.saving}>
-          {settings.saving ? t('settings.saving') : t('settings.save')}
-        </Button>
-      </div>
-    {:else if settings.message}
-      <span>{t('settings.saved', { n: settings.message })}</span>
-      <Button variant="ghost" size="sm" onclick={() => showFolder(settings.backup)}>{t('settings.showBackup')}</Button>
-    {:else}
-      <span class="muted">{t('settings.allSaved')}</span>
-    {/if}
-  </div>
-  {#if settings.error}<p class="problem">{settings.error}</p>{/if}
+  <SaveBar />
 {/if}
 
 <style>
@@ -273,12 +269,4 @@
   .pair > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
   .check { display: flex; align-items: center; gap: var(--space-2); min-height: 40px; font-size: var(--text-sm); cursor: pointer; }
   .check input { width: 18px; height: 18px; margin: 0; }
-  .savebar {
-    display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
-    padding: var(--space-3) var(--space-5); border-radius: var(--radius-xl);
-    background: var(--surface); border: 1px solid var(--line); font-size: var(--text-sm);
-  }
-  .savebar.dirty { position: sticky; bottom: 0; z-index: 2; background: var(--accent-tint); color: var(--accent-ink); border-color: transparent; font-weight: var(--weight-semibold); }
-  .actions { display: flex; gap: var(--space-2); }
-  .problem { margin: 0; color: var(--rose-ink); font-weight: var(--weight-semibold); font-size: var(--text-sm); }
 </style>

@@ -41,6 +41,8 @@ export interface LongJobState {
   message: string;
   rows: FileRow[];        // newest first
   log: LogLine[];
+  prepDone: number;       // files read while preparing (Standardize reads headers first)
+  prepTotal: number;
 }
 
 const MAX_ROWS = 300;
@@ -51,12 +53,15 @@ export const isActive = (s: JobStatus) =>
   s === 'starting' || s === 'scanning' || s === 'running' || s === 'stopping';
 
 /** Stages after which the job counts as "running" (anything but scanning first). */
-const MAIN_STAGES = new Set(['detect', 'filter']);
+const MAIN_STAGES = new Set(['detect', 'filter', 'standardize']);
+/** Stages shown as "preparing" before the main work starts. */
+const PREP_STAGES = new Set(['scan', 'std_inspect']);
 
-export function createLongJob() {
+/** `onEvent` (optional) also sees every event of this job, e.g. to reload results when it ends. */
+export function createLongJob(onEvent?: (e: JobEvent) => void) {
   const state = $state<LongJobState>({
     id: '', status: 'idle', total: null, alreadyDone: 0, done: 0, failed: 0, detections: 0,
-    batch: 0, batches: 0, runDir: '', startedAt: 0, message: '', rows: [], log: []
+    batch: 0, batches: 0, runDir: '', startedAt: 0, message: '', rows: [], log: [], prepDone: 0, prepTotal: 0
   });
 
   let listening = false;
@@ -74,15 +79,20 @@ export function createLongJob() {
   }
 
   function handle(e: JobEvent) {
+    try { onEvent?.(e); } catch { /* a screen's extra handling must not break progress */ }
     switch (e.type) {
       case 'stage':
-        if (e.stage === 'scan') state.status = 'scanning';
+        if (PREP_STAGES.has(String(e.stage))) state.status = 'scanning';
         if (MAIN_STAGES.has(String(e.stage))) {
           state.status = 'running';
           state.runDir = String(e.run_dir ?? '');
           state.alreadyDone = Number(e.already_done ?? 0);
           state.startedAt = Date.now();
         }
+        break;
+      case 'prep':
+        state.prepDone = Number(e.done);
+        state.prepTotal = Number(e.total);
         break;
       case 'total':
         state.total = Number(e.n);
@@ -126,7 +136,7 @@ export function createLongJob() {
     listenOnce();
     Object.assign(state, {
       status: 'starting', total: null, alreadyDone: 0, done: 0, failed: 0, detections: 0,
-      batch: 0, batches: 0, runDir: '', startedAt: 0, message: '', rows: [], log: []
+      batch: 0, batches: 0, runDir: '', startedAt: 0, message: '', rows: [], log: [], prepDone: 0, prepTotal: 0
     });
     try {
       state.id = await startJob(spec);

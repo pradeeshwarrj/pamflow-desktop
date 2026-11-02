@@ -1,4 +1,4 @@
-<!-- Step 8 · Report: demo version, shown when the interface runs in a plain browser (pnpm dev). -->
+<!-- Report step: demo version, shown when the interface runs in a plain browser (pnpm dev). -->
 <script lang="ts">
   import PageHeader from '$lib/components/PageHeader.svelte';
   import Card from '$lib/components/Card.svelte';
