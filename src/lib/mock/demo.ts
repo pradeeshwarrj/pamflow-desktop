@@ -109,3 +109,23 @@ export const processSummary = {
     { scientific_name: '', common_name: 'Other species', events: 5, max_confidence: 0.8 }
   ]
 };
+
+/** Occupancy demo: an illustrative history (not real results). */
+const demoSites = ['G0059', 'G0110', 'G0263', 'G1180', 'G1204', 'G1310'];
+const demoDates = Array.from({ length: 21 }, (_, i) => `2026-04-${String(4 + i).padStart(2, '0')}`);
+const pattern = (seed: number) =>
+  demoSites.map((_, s) => demoDates.map((_, d) => ((s * 7 + d * 3 + seed) % 11 === 0 ? '.' : (s + d + seed) % 4 === 0 ? '1' : '0')).join(''));
+export const occupancyInfo = {
+  available: true,
+  dir: '',
+  updated: '',
+  settings: { run_id: 'run01', config_run_id: 'run01', occasion_length_days: 1, min_effort_hours: 2, min_detections: 10, min_confidence: 0.4, thresholds_file: null },
+  summary: [
+    { species: 'Otus alius_Nicobar Scops-Owl', threshold_used: 0.4, n_sites: 6, n_occasions: 21, n_sites_detected: 5, naive_occupancy: 0.833 },
+    { species: 'Ducula nicobarica_Nicobar Imperial-Pigeon', threshold_used: 0.4, n_sites: 6, n_occasions: 21, n_sites_detected: 3, naive_occupancy: 0.5 }
+  ],
+  histories: [
+    { species: 'Otus alius_Nicobar Scops-Owl', sites: demoSites, occasions: demoDates, rows: pattern(1) },
+    { species: 'Ducula nicobarica_Nicobar Imperial-Pigeon', sites: demoSites, occasions: demoDates, rows: pattern(2) }
+  ]
+};

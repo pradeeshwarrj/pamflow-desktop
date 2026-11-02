@@ -1,6 +1,8 @@
-<!-- Not built yet: shows a placeholder in the approved layout. -->
+<!-- Step 7 · Occupancy: live inside the app, demo in a plain browser. -->
 <script lang="ts">
-  import ComingSoon from '$lib/components/ComingSoon.svelte';
+  import { inApp } from '$lib/backend/tauri';
+  import OccupancyLive from '$lib/screens/OccupancyLive.svelte';
+  import OccupancyDemo from '$lib/screens/OccupancyDemo.svelte';
 </script>
 
-<ComingSoon stage="occupancy" />
+{#if inApp}<OccupancyLive />{:else}<OccupancyDemo />{/if}

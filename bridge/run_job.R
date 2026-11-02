@@ -6,14 +6,16 @@
 # job.json (written by the app):
 #   {
 #     "job": "inspect" | "detect" | "process" | "process_results" |
-#            "validation_state" | "validation_draw" | "validation_metrics",
+#            "validation_state" | "validation_draw" | "validation_metrics" |
+#            "occupancy_build" | "occupancy_results" | "model_input",
 #     "project": "<project folder or config.yml>",
 #     "runtime": "<bundled runtime folder>",
 #     "birdnet": { "workers": 4, "min_confidence": 0.3 },   (optional overrides)
 #     "sample_n": null,                                       (detect: test on N files)
 #     "strategy": "stratified" | "random" | "rare",           (validation_draw)
 #     "n": 100, "species": ["..."],                           (validation_draw, optional)
-#     "with_pool": true                                       (validation_state: also count events)
+#     "with_pool": true,                                      (validation_state: also count events)
+#     "response": "detection" | "counts", "standardize": false (model_input)
 #   }
 #
 # Progress goes to stdout as "@@PAM {json}" lines (see protocol.R).
@@ -158,6 +160,106 @@ job_process <- function(cfg) {
 
 job_process_results <- function(cfg) {
   emit_processed(cfg)
+  list(status = "ok")
+}
+
+# ---- occupancy (pamflow Stages 6 and 7) -------------------------------------
+# pamflow's occupancy step reads the run named in occupancy$run_id. The app
+# uses that run when it has cleaned detections, otherwise the run that was
+# detected and cleaned in the app (birdnet$run_id). The screen shows which.
+
+occupancy_run_id <- function(cfg) {
+  clean_exists <- function(run) {
+    !is.null(run) && file.exists(file.path(cfg$paths$detections, run, "processed", "detections_clean.csv"))
+  }
+  occ <- cfg$occupancy$run_id
+  if (clean_exists(occ)) occ else cfg$birdnet$run_id
+}
+
+occupancy_dir <- function(cfg) file.path(cfg$paths$occupancy, occupancy_run_id(cfg))
+
+occupancy_settings <- function(cfg) {
+  oc <- cfg$occupancy
+  list(run_id = occupancy_run_id(cfg), config_run_id = oc$run_id,
+       occasion_length_days = oc$occasion_length_days %||% 1,
+       min_effort_hours = oc$min_effort_hours %||% 2,
+       min_detections = oc$min_detections %||% 10,
+       min_confidence = cfg$processing$min_confidence %||% 0.5,
+       thresholds_file = cfg$processing$species_thresholds_file)
+}
+
+# Send the detection histories and summary pamflow wrote.
+emit_occupancy <- function(cfg) {
+  dir <- occupancy_dir(cfg)
+  summary_path <- file.path(dir, "occupancy_summary.csv")
+  base <- list(dir = dir, settings = occupancy_settings(cfg))
+  if (!file.exists(summary_path)) {
+    do.call(pd_emit, c(list("occupancy", available = FALSE), base))
+    return(invisible(FALSE))
+  }
+  summary <- data.table::fread(summary_path)
+  histories <- lapply(summary$species, function(sp) {
+    path <- file.path(dir, paste0("detection_history_", gsub(" ", "_", sp), ".csv"))
+    if (!file.exists(path)) return(NULL)
+    h <- data.table::fread(path, header = TRUE, colClasses = list(character = "site_id"))
+    occ_cols <- setdiff(names(h), "site_id")
+    list(species = sp, sites = h$site_id, occasions = occ_cols,
+         # one string per site: "1", "0" or "." (not surveyed) for each occasion
+         rows = vapply(seq_len(nrow(h)), function(i) {
+           v <- unlist(h[i, ..occ_cols], use.names = FALSE)
+           paste(ifelse(is.na(v), ".", ifelse(v > 0, "1", "0")), collapse = "")
+         }, character(1)))
+  })
+  histories <- Filter(Negate(is.null), histories)
+  site_cov <- file.path(dir, "site_covariates.csv")
+  do.call(pd_emit, c(list("occupancy", available = TRUE,
+                          updated = format(file.mtime(summary_path), "%Y-%m-%d %H:%M"),
+                          summary = summary, histories = histories,
+                          site_covariates = if (file.exists(site_cov)) names(data.table::fread(site_cov, header = TRUE, nrows = 1)) else list()),
+                     base))
+  invisible(TRUE)
+}
+
+job_occupancy_build <- function(cfg) {
+  run <- occupancy_run_id(cfg)
+  pd_emit("stage", stage = "occupancy", label = "Building detection histories", run_id = run)
+  res <- with_log_events(pam_run_stage("06_occupancy", pam_build_occupancy, cfg, run_id = run, force = TRUE))
+  if (res$status != "ok") return(list(status = "failed", message = "Building the histories failed; see the log."))
+  if (is.null(res$result)) {
+    emit_occupancy(cfg)
+    return(list(status = "failed",
+                message = "No species had enough detections. Lower occupancy: min_detections in config.yml, or check the cleaned detections."))
+  }
+  emit_occupancy(cfg)
+  list(status = "ok")
+}
+
+job_occupancy_results <- function(cfg) {
+  emit_occupancy(cfg)
+  list(status = "ok")
+}
+
+# Model input for unmarked / spOccupancy / ubms (pamflow prepares, it does not fit).
+job_model_input <- function(cfg) {
+  run <- occupancy_run_id(cfg)
+  binary <- !identical(job$response, "counts")
+  standardize <- isTRUE(job$standardize)
+  out_dir <- file.path(occupancy_dir(cfg), if (binary) "model_input_detection" else "model_input_counts")
+  pd_emit("stage", stage = "model_input", label = "Preparing model input", run_id = run)
+  res <- with_log_events(pam_run_stage("07_model_input", function(cfg) {
+    histories <- pam_count_histories(cfg, run_id = run)
+    x <- pam_model_input(histories, binary = binary, standardize = standardize, dir = out_dir)
+    list(x = x, checks = pam_check_model_input(x, error = FALSE))
+  }, cfg))
+  if (res$status != "ok") return(list(status = "failed", message = "Preparing the model input failed; see the log."))
+  x <- res$result$x
+  d <- dim(x$y)
+  pd_emit("model_input", dir = out_dir, binary = binary, standardize = standardize,
+          dims = d, layout = attr(x, "layout"),
+          n_sites = length(x$site_ids),
+          site_covariates = names(x$siteCovs), obs_covariates = names(x$obsCovs),
+          checks = res$result$checks,
+          files = basename(list.files(out_dir, pattern = "\\.csv$")))
   list(status = "ok")
 }
 
@@ -343,6 +445,9 @@ result <- tryCatch(
          validation_state = job_validation_state(cfg),
          validation_draw = job_validation_draw(cfg),
          validation_metrics = job_validation_metrics(cfg),
+         occupancy_build = job_occupancy_build(cfg),
+         occupancy_results = job_occupancy_results(cfg),
+         model_input = job_model_input(cfg),
          list(status = "failed", message = paste("unknown job:", job$job))),
   error = function(e) list(status = "failed", message = conditionMessage(e)))
 

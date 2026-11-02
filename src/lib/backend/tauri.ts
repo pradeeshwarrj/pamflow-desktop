@@ -23,7 +23,8 @@ export type JobEvent = { type: string; [field: string]: unknown };
 export interface JobSpec {
   job:
     | 'inspect' | 'detect' | 'process' | 'process_results'
-    | 'validation_state' | 'validation_draw' | 'validation_metrics';
+    | 'validation_state' | 'validation_draw' | 'validation_metrics'
+    | 'occupancy_build' | 'occupancy_results' | 'model_input';
   project: string;
   birdnet?: Record<string, unknown>;
   sample_n?: number | null;
@@ -31,6 +32,8 @@ export interface JobSpec {
   n?: number;
   species?: string[];
   with_pool?: boolean;
+  response?: 'detection' | 'counts';
+  standardize?: boolean;
 }
 
 export function runtimeInfo(): Promise<RuntimeInfo> {
