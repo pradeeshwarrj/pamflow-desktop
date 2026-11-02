@@ -1,7 +1,7 @@
 /**
  * Process step: run pamflow's cleaning (Stage 4) and hold its summary.
  */
-import { runJob, type JobEvent } from './tauri';
+import { runJob, type JobEvent, failureMessage } from './tauri';
 
 export interface ProcessStep {
   rule: string;
@@ -48,7 +48,7 @@ function absorb(events: JobEvent[]) {
     processJob.message = '';
   } else {
     processJob.status = 'failed';
-    processJob.message = String(finished?.message ?? 'The engine stopped unexpectedly.');
+    processJob.message = failureMessage(events, 'The engine stopped unexpectedly.');
   }
 }
 

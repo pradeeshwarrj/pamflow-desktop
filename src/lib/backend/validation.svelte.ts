@@ -4,7 +4,7 @@
  * reviewing here or in pamflow's Shiny app gives the same results.
  */
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
-import { runJob } from './tauri';
+import { runJob, failureMessage } from './tauri';
 
 export type Verdict = 'correct' | 'incorrect' | 'unsure';
 
@@ -123,7 +123,7 @@ export async function loadValidation(project: string) {
       validation.status = 'ready';
     } else {
       validation.status = 'failed';
-      validation.message = String(finished?.message ?? 'Could not read the validation files.');
+      validation.message = failureMessage(events, 'Could not read the validation files.');
     }
   } catch (e) {
     validation.status = 'failed';
@@ -147,7 +147,7 @@ export async function drawRound(project: string, strategy: 'stratified' | 'rando
       validation.metrics = null;
     }
     validation.status = info ? 'ready' : 'failed';
-    if (finished?.status !== 'ok') validation.message = String(finished?.message ?? 'Drawing events failed.');
+    if (finished?.status !== 'ok') validation.message = failureMessage(events, 'Drawing events failed.');
   } catch (e) {
     validation.status = 'failed';
     validation.message = String(e);

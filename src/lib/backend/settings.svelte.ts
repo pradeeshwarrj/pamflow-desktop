@@ -6,7 +6,7 @@
  * (comments and everything else stay), checks the file with pamflow's own
  * reader first, and keeps a dated backup in config/backups/.
  */
-import { runJob } from './tauri';
+import { runJob, failureMessage } from './tauri';
 import { project, type ProjectFacts } from './project.svelte';
 export type { Setting } from './project.svelte';
 
@@ -75,7 +75,7 @@ export async function saveSettings() {
       settings.message = `${changes.length}`;
       resetDraft();
     } else {
-      settings.error = String(finished?.message ?? 'The settings could not be saved.');
+      settings.error = failureMessage(events, 'The settings could not be saved.');
     }
   } catch (e) {
     settings.error = String(e);

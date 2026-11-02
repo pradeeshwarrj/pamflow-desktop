@@ -8,7 +8,7 @@
  * `audio_raw`, `audio_standardized`, `audio_isolated`).
  */
 import { createLongJob } from './longjob.svelte';
-import { runJob, type JobEvent } from './tauri';
+import { runJob, type JobEvent, failureMessage } from './tauri';
 
 export interface StdSettings {
   raw_dir: string;
@@ -99,7 +99,7 @@ export async function checkRaw(project: string) {
     });
     takeState(events);
     const finished = events.find((e) => e.type === 'finished');
-    if (finished?.status !== 'ok') standardize.message = String(finished?.message ?? 'Checking failed.');
+    if (finished?.status !== 'ok') standardize.message = failureMessage(events, 'Checking failed.');
   } catch (e) {
     standardize.message = String(e);
   } finally {

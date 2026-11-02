@@ -2,7 +2,7 @@
  * The open pamflow project: its folder (remembered between sessions) and
  * what the engine found in it.
  */
-import { inApp, runJob, type JobEvent } from './tauri';
+import { inApp, runJob, type JobEvent, failureMessage } from './tauri';
 import { processJob } from './process.svelte';
 import { validation } from './validation.svelte';
 import { occupancy } from './occupancy.svelte';
@@ -108,7 +108,7 @@ export async function refreshProject(): Promise<void> {
     const facts = events.find((e) => e.type === 'project');
     const finished = events.find((e) => e.type === 'finished');
     if (facts) project.facts = facts as unknown as ProjectFacts;
-    else project.error = String(finished?.message ?? 'The project could not be read.');
+    else project.error = failureMessage(events, 'The project could not be read.');
   } catch (e) {
     project.error = String(e);
   } finally {

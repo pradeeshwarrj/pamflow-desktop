@@ -2,7 +2,7 @@
  * Scan step: read every recording's header, check quality and match the
  * deployment sheet (pamflow Stage 1).
  */
-import { runJob } from './tauri';
+import { runJob, failureMessage } from './tauri';
 
 export interface ScanSummary {
   available: boolean;
@@ -32,7 +32,7 @@ async function run(project: string, job: 'scan' | 'scan_results', force = false)
   scan.log = events.filter((e) => e.type === 'log' || e.type === 'text').map((e) => String(e.text ?? ''));
   if (summary) scan.summary = summary as unknown as ScanSummary;
   scan.status = finished?.status === 'ok' ? 'ready' : 'failed';
-  scan.message = finished?.status === 'ok' ? '' : String(finished?.message ?? 'Scanning failed.');
+  scan.message = finished?.status === 'ok' ? '' : failureMessage(events, 'Scanning failed.');
 }
 
 export async function loadScan(project: string) {

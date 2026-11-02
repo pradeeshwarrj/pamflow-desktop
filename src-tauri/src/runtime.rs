@@ -51,7 +51,9 @@ impl Runtime {
             candidates.push(root.join("runtime").join(".pixi").join("envs").join("default"));
         }
 
-        for prefix in candidates {
+        // R cannot read Windows "\\?\C:\..." long-path names; use plain C:\... names.
+        let bridge = plain(bridge);
+        for prefix in candidates.into_iter().map(plain) {
             if rscript_in(&prefix).is_file() {
                 return Ok(Runtime { prefix, bridge });
             }
@@ -131,6 +133,11 @@ impl Runtime {
             cmd.process_group(0); // so Stop can end R and everything it started
         }
     }
+}
+
+/// A path without Windows' "\\?\" prefix (no change elsewhere).
+pub fn plain(p: PathBuf) -> PathBuf {
+    dunce::simplified(&p).to_path_buf()
 }
 
 fn rscript_in(prefix: &Path) -> PathBuf {

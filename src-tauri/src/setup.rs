@@ -38,7 +38,7 @@ struct Pack {
 }
 
 fn pack(app: &AppHandle) -> Option<Pack> {
-    let dir = app.path().resource_dir().ok()?.join("runtime-pack");
+    let dir = crate::runtime::plain(app.path().resource_dir().ok()?.join("runtime-pack"));
     let id = std::fs::read_to_string(dir.join("runtime-id.txt")).ok()?.trim().to_string();
     if id.is_empty() || !dir.join("runtime.tar").is_file() {
         return None;
@@ -62,6 +62,7 @@ pub fn install_root(app: &AppHandle) -> Result<PathBuf, String> {
             data.join("pamflow").join("runtime")
         }
     };
+    let root = crate::runtime::plain(root);
     if !cfg!(windows) && root.to_string_lossy().contains(' ') {
         return Err(format!(
             "pamflow needs a folder without spaces for its analysis engine, but this is {}.",

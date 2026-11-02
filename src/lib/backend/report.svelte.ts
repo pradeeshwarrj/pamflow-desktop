@@ -2,7 +2,7 @@
  * Report step: pamflow's HTML and Excel report of the run.
  * (PDF is not offered: pamflow's PDF needs LaTeX, which the app does not bundle.)
  */
-import { runJob } from './tauri';
+import { runJob, failureMessage } from './tauri';
 
 export interface ReportFile {
   format: 'html' | 'excel';
@@ -69,7 +69,7 @@ export async function writeReport(project: string, formats: string[]) {
     report.made = list(done?.made);
     report.missing = list(done?.missing);
     report.status = 'ready';
-    if (finished?.status !== 'ok') report.message = String(finished?.message ?? 'Writing the report failed.');
+    if (finished?.status !== 'ok') report.message = failureMessage(events, 'Writing the report failed.');
   } catch (e) {
     report.status = 'failed';
     report.message = String(e);

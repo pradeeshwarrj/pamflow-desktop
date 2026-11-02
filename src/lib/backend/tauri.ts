@@ -95,6 +95,24 @@ export async function openFile(path: string): Promise<void> {
 }
 
 /**
+ * Why a job failed, for the screen. Uses the bridge's own message when there
+ * is one; when R stopped before it could say anything (it did not start, or
+ * crashed), the last lines R printed and the exit code are shown instead.
+ */
+export function failureMessage(events: JobEvent[], fallback: string): string {
+  const finished = events.find((e) => e.type === 'finished');
+  if (finished?.message) return String(finished.message);
+  const printed = events
+    .filter((e) => e.type === 'text' || (e.type === 'log' && e.level === 'ERROR'))
+    .map((e) => String(e.text ?? ''))
+    .filter((l) => l.trim())
+    .slice(-12);
+  const exit = events.find((e) => e.type === 'exit');
+  const code = exit && exit.code !== null && exit.code !== undefined ? ` (exit code ${exit.code})` : '';
+  return printed.length ? `${fallback}${code}\n${printed.join('\n')}` : `${fallback}${code}`;
+}
+
+/**
  * Run a job and collect its events until it ends. `onEvent` (optional)
  * sees each event as it arrives, e.g. to show which stage is running.
  */

@@ -79,7 +79,7 @@ pub fn start_job(app: AppHandle, jobs: State<'_, Jobs>, spec: Value) -> Result<S
     }
 
     // The job description is handed to R as a small JSON file.
-    let jobs_dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("jobs");
+    let jobs_dir = crate::runtime::plain(app.path().app_data_dir().map_err(|e| e.to_string())?.join("jobs"));
     std::fs::create_dir_all(&jobs_dir).map_err(|e| format!("cannot create {}: {e}", jobs_dir.display()))?;
     let spec_path = jobs_dir.join(format!("{id}.json"));
     std::fs::write(&spec_path, serde_json::to_vec_pretty(&spec).unwrap_or_default())

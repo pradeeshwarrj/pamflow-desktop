@@ -3,7 +3,7 @@
  * for unmarked / spOccupancy / ubms (Stage 7). pamflow prepares the data;
  * models are fitted by the user in those packages.
  */
-import { runJob, type JobEvent } from './tauri';
+import { runJob, type JobEvent, failureMessage } from './tauri';
 
 export interface OccupancySettings {
   run_id: string;
@@ -83,7 +83,7 @@ function absorb(events: JobEvent[], building: boolean) {
     occupancy.message = '';
   } else {
     occupancy.status = info ? 'ready' : 'failed';
-    occupancy.message = String(finished?.message ?? (building ? 'Building failed.' : 'Could not read the results.'));
+    occupancy.message = failureMessage(events, (building ? 'Building failed.' : 'Could not read the results.'));
   }
 }
 
@@ -122,7 +122,7 @@ export async function prepareModelInput(project: string, response: 'detection' |
       occupancy.modelStatus = 'idle';
     } else {
       occupancy.modelStatus = 'failed';
-      occupancy.modelMessage = String(finished?.message ?? 'Preparing the model input failed.');
+      occupancy.modelMessage = failureMessage(events, 'Preparing the model input failed.');
     }
   } catch (e) {
     occupancy.modelStatus = 'failed';
