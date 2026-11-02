@@ -202,7 +202,34 @@
       "activity": "Daily activity",
       "validation": "Validation accuracy",
       "occupancy": "Occupancy inputs"
-    }
+    },
+    "introLive": "{title} · run {run}. pamflow writes the report from every step's results; sections without data are left out.",
+    "introDefault": "pamflow writes the report from every step's results.",
+    "loading": "Reading the project…",
+    "hours": "hours recorded",
+    "sites": "sites",
+    "speciesCount": "species",
+    "contentsTitle": "What the report will include",
+    "contentsHint": "From the steps you have run",
+    "included": "included",
+    "missing": {
+      "effort": "scan the recordings first",
+      "detections": "clean the detections on Process",
+      "richness": "needs cleaned detections from several sites",
+      "activity": "needs cleaned detections and recording effort",
+      "validation": "calculate precision on Validate",
+      "occupancy": "build histories on Occupancy"
+    },
+    "speciesHintLive": "Events after cleaning",
+    "colEvents": "Events",
+    "colSites": "Sites",
+    "needsPandoc": "needs pandoc in the runtime",
+    "needsLatex": "needs LaTeX (not included yet)",
+    "writing": "Writing…",
+    "notWritten": "Not written: {formats}. See the log for pamflow's message.",
+    "filesTitle": "Report files",
+    "open": "Open",
+    "noFiles": "No report yet."
   },
   "process": {
     "title": "Clean the detections",

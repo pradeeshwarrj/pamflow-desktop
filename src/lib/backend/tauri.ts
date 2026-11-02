@@ -24,7 +24,8 @@ export interface JobSpec {
   job:
     | 'inspect' | 'detect' | 'process' | 'process_results'
     | 'validation_state' | 'validation_draw' | 'validation_metrics'
-    | 'occupancy_build' | 'occupancy_results' | 'model_input';
+    | 'occupancy_build' | 'occupancy_results' | 'model_input'
+    | 'report_preview' | 'report';
   project: string;
   birdnet?: Record<string, unknown>;
   sample_n?: number | null;
@@ -34,6 +35,7 @@ export interface JobSpec {
   with_pool?: boolean;
   response?: 'detection' | 'counts';
   standardize?: boolean;
+  formats?: string[];
 }
 
 export function runtimeInfo(): Promise<RuntimeInfo> {
@@ -66,6 +68,12 @@ export async function pickFolder(title: string): Promise<string | null> {
 export async function showFolder(path: string): Promise<void> {
   const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
   await revealItemInDir(path);
+}
+
+/** Open a report file (HTML, Excel, PDF) with the computer's default program. */
+export async function openFile(path: string): Promise<void> {
+  const { openPath } = await import('@tauri-apps/plugin-opener');
+  await openPath(path);
 }
 
 /**

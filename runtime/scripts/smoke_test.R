@@ -46,6 +46,11 @@ ff_ok <- nzchar(ffmpeg) && startsWith(normalizePath(ffmpeg, winslash = "/"), nor
 ff_ver <- if (nzchar(ffmpeg)) tryCatch(system2(ffmpeg, "-version", stdout = TRUE)[1], error = function(e) "") else ""
 record("ffmpeg (bundled)", ff_ok, if (nzchar(ffmpeg)) paste(ffmpeg, "|", sub(" Copyright.*", "", ff_ver)) else "not found")
 
+# --- pandoc (for pamflow's HTML report) ---
+pandoc_ok <- isTRUE(tryCatch(rmarkdown::pandoc_available("2.0"), error = function(e) FALSE))
+record("pandoc (bundled)", pandoc_ok,
+       if (pandoc_ok) paste(rmarkdown::pandoc_exec(), "|", as.character(rmarkdown::pandoc_version())) else "not found")
+
 # --- Python + BirdNET ---
 python <- if (is_windows) file.path(prefix, "python.exe") else file.path(prefix, "bin", "python")
 record("Python (bundled)", file.exists(python), python)

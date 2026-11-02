@@ -2,7 +2,7 @@
 # pamflow Desktop — bundled runtime recipe
 # ---------------------------------------------------------------------
 # Everything the app needs to do the analysis, in one folder that ships
-# inside the installer: R + pamflow's packages, Python + BirdNET, ffmpeg.
+# inside the installer: R + pamflow's packages, Python + BirdNET, ffmpeg, pandoc.
 # Users never install any of this themselves.
 #
 #   pixi install          build the runtime (first time: 10–20 min)
@@ -40,6 +40,7 @@ r-jsonlite = "*"
 r-remotes = "*"
 # --- tools ---
 ffmpeg = "*"
+pandoc = "*"          # rmarkdown needs it to write pamflow's HTML report
 # --- Python for BirdNET ---
 python = "3.12.*"
 pip = "*"

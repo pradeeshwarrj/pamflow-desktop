@@ -12,6 +12,7 @@ ships inside the installer. Users never install R, Python or ffmpeg.
 | BirdNET (`birdnet`) | 0.2.16 (`>=0.2.16,<0.3`, same as pamflow) | PyPI |
 | TensorFlow | 2.21 (2.16 on Intel Macs) | PyPI |
 | ffmpeg | 8.x | conda-forge |
+| pandoc | 3.x (for the HTML report) | conda-forge |
 
 `pixi.toml` is the recipe. It is solved for Windows, Apple Silicon Mac,
 Intel Mac and Linux.
