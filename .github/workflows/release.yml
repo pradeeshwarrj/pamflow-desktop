@@ -124,7 +124,10 @@ jobs:
             Install, then start pamflow. The first start sets up the analysis
             engine once (1-5 minutes, no internet needed).
             Windows: if SmartScreen warns, choose "More info" -> "Run anyway".
-            macOS: the first time, right-click pamflow -> Open.
+            macOS (the app is not yet notarized by Apple): drag pamflow to
+            Applications, then either open it once and choose System Settings ->
+            Privacy & Security -> "Open Anyway", or run in Terminal:
+              xattr -cr /Applications/pamflow.app
           releaseDraft: true
           prerelease: true
           args: --config src-tauri/tauri.release.conf.json --bundles ${{ matrix.bundles }}
