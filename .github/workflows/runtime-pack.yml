@@ -1,0 +1,121 @@
+# Installer, step 1: can the runtime be packed, moved to another computer
+# and still work?
+#
+# On every operating system this builds the runtime, packs it with
+# pixi-pack (the conda packages + Python wheels) plus one archive of the R
+# packages that are not conda packages (tuneR, seewave, pamflow, ...), then
+# unpacks both into a NEW folder whose path has a space in it - as the app
+# will do on the user's computer - and runs the smoke test from there.
+# The job summary shows the pack sizes and how long unpacking took.
+#
+# Run it from the Actions tab ("Run workflow"); it also runs when this file
+# or the pack script changes.
+
+name: runtime pack
+
+on:
+  push:
+    paths:
+      - ".github/workflows/runtime-pack.yml"
+      - "runtime/scripts/pack_extras.py"
+  workflow_dispatch:
+
+jobs:
+  pack:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows, os: windows-latest, platform: win-64 }
+          - { name: macOS (Apple Silicon), os: macos-15, platform: osx-arm64 }
+          - { name: macOS (Intel), os: macos-15-intel, platform: osx-64 }
+          - { name: Linux, os: ubuntu-latest, platform: linux-64 }
+    defaults:
+      run:
+        shell: bash
+        working-directory: runtime
+    env:
+      DIST: ${{ github.workspace }}/dist
+      TARGET: ${{ runner.temp }}/pamflow test/runtime
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the runtime (pixi install)
+        uses: prefix-dev/setup-pixi@v0.9.3
+        with:
+          manifest-path: runtime/pixi.toml
+          locked: true
+          cache: true
+          cache-write: false
+
+      - name: Add tuneR, seewave and pamflow (pixi run setup-r)
+        run: pixi run setup-r
+
+      - name: Pack the extra R packages
+        run: pixi run python scripts/pack_extras.py "$DIST/r-extras.tar.gz"
+
+      - name: Pack the runtime (pixi-pack)
+        run: |
+          pixi exec pixi-pack --version
+          pixi exec pixi-pack --environment default --platform ${{ matrix.platform }} \
+            --output-file "$DIST/runtime.tar" pixi.toml
+          ls -l "$DIST"
+
+      - name: Unpack into a new folder (pixi-unpack)
+        run: |
+          mkdir -p "$TARGET"
+          start=$(date +%s)
+          pixi exec pixi-unpack --output-directory "$TARGET" "$DIST/runtime.tar" \
+            || pixi exec --spec pixi-pack pixi-unpack --output-directory "$TARGET" "$DIST/runtime.tar"
+          echo "UNPACK_SECONDS=$(( $(date +%s) - start ))" >> "$GITHUB_ENV"
+          ls "$TARGET" "$TARGET/env" | head -40
+
+      - name: Add the extra R packages to the unpacked runtime
+        run: |
+          envdir="$TARGET/env"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            PY="$envdir/python.exe"
+            export PATH="$envdir:$envdir/Library/mingw-w64/bin:$envdir/Library/usr/bin:$envdir/Library/bin:$envdir/Scripts:$PATH"
+          else
+            PY="$envdir/bin/python"
+          fi
+          "$PY" scripts/add_extras.py "$envdir" "$DIST/r-extras.tar.gz"
+
+      - name: Smoke test from the unpacked runtime (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $envdir = Join-Path $env:TARGET "env"
+          $env:CONDA_PREFIX = $envdir
+          $env:PATH = "$envdir;$envdir\Library\mingw-w64\bin;$envdir\Library\usr\bin;$envdir\Library\bin;$envdir\Scripts;$envdir\bin;$env:SystemRoot\system32;$env:SystemRoot"
+          $env:R_LIBS_USER = "NULL"; $env:R_LIBS = ""; $env:R_PROFILE_USER = "NULL"; $env:R_ENVIRON_USER = "NULL"
+          Remove-Item Env:R_HOME -ErrorAction SilentlyContinue
+          & "$envdir\Lib\R\bin\Rscript.exe" scripts/smoke_test.R
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Smoke test from the unpacked runtime (macOS, Linux)
+        if: runner.os != 'Windows'
+        run: |
+          envdir="$TARGET/env"
+          env -i HOME="$HOME" PATH="$envdir/bin:/usr/bin:/bin" CONDA_PREFIX="$envdir" \
+            R_LIBS_USER=NULL R_LIBS= R_PROFILE_USER=NULL R_ENVIRON_USER=NULL \
+            "$envdir/bin/Rscript" scripts/smoke_test.R
+
+      - name: Sizes
+        if: always()
+        run: |
+          size() { if [ -f "$1" ]; then du -m "$1" | cut -f1; else echo "-"; fi; }
+          used=$(du -sm "$TARGET/env" 2>/dev/null | cut -f1)
+          {
+            echo "### ${{ matrix.name }}"
+            echo "| item | MB |"
+            echo "|---|---|"
+            echo "| runtime pack (runtime.tar) | $(size "$DIST/runtime.tar") |"
+            echo "| extra R packages (r-extras.tar.gz) | $(size "$DIST/r-extras.tar.gz") |"
+            echo "| unpacked runtime on disk | ${used:--} |"
+            echo "| unpack time (s) | ${UNPACK_SECONDS:--} |"
+          } >> "$GITHUB_STEP_SUMMARY"
