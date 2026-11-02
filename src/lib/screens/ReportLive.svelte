@@ -21,15 +21,14 @@
 
   let wantHtml = $state(true);
   let wantExcel = $state(true);
-  let wantPdf = $state(false);
-  const chosen = $derived([wantHtml && 'html', wantExcel && 'excel', wantPdf && 'pdf'].filter(Boolean) as string[]);
+  const chosen = $derived([wantHtml && 'html', wantExcel && 'excel'].filter(Boolean) as string[]);
 
   const sectionList = $derived(
     p ? (['effort', 'detections', 'richness', 'activity', 'validation', 'occupancy'] as const).map((id) => ({
       id, included: p.sections[id]
     })) : []
   );
-  const fileLabel: Record<string, string> = { html: 'HTML', excel: 'Excel', pdf: 'PDF' };
+  const fileLabel: Record<string, string> = { html: 'HTML', excel: 'Excel' };
 </script>
 
 <PageHeader stage="report" title={t('report.title')}
@@ -84,9 +83,8 @@
           <label><input type="checkbox" bind:checked={wantHtml} disabled={!p.pandoc} /> HTML
             {#if !p.pandoc}<span class="muted">· {t('report.needsPandoc')}</span>{/if}</label>
           <label><input type="checkbox" bind:checked={wantExcel} /> Excel</label>
-          <label><input type="checkbox" bind:checked={wantPdf} disabled={!p.latex} /> PDF
-            {#if !p.latex}<span class="muted">· {t('report.needsLatex')}</span>{/if}</label>
         </div>
+        <p class="muted">{t('report.pdfTip')}</p>
         <Button variant="primary" size="lg" full onclick={() => writeReport(project.folder, chosen)}
           disabled={writing || !chosen.length}>
           {writing ? t('report.writing') : t('report.create')}

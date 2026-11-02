@@ -17,7 +17,7 @@
 #     "n": 100, "species": ["..."],                           (validation_draw, optional)
 #     "with_pool": true,                                      (validation_state: also count events)
 #     "response": "detection" | "counts", "standardize": false (model_input)
-#     "formats": ["html", "excel", "pdf"]                     (report)
+#     "formats": ["html", "excel"]                            (report)
 #   }
 #
 # Progress goes to stdout as "@@PAM {json}" lines (see protocol.R).
@@ -271,8 +271,7 @@ job_model_input <- function(cfg) {
 
 report_files <- function(cfg, run) {
   dir <- cfg$paths$reports
-  files <- c(html = paste0("report_", run, ".html"), pdf = paste0("report_", run, ".pdf"),
-             excel = paste0("report_", run, ".xlsx"))
+  files <- c(html = paste0("report_", run, ".html"), excel = paste0("report_", run, ".xlsx"))
   lapply(names(files), function(k) {
     path <- file.path(dir, files[[k]])
     list(format = k, path = path, exists = file.exists(path),
@@ -303,8 +302,6 @@ job_report_preview <- function(cfg) {
           formats = unlist(cfg$report$formats),
           reports_dir = cfg$paths$reports,
           pandoc = isTRUE(tryCatch(rmarkdown::pandoc_available("2.0"), error = function(e) FALSE)),
-          latex = nzchar(Sys.which("pdflatex")) || nzchar(Sys.which("xelatex")) ||
-            isTRUE(tryCatch(tinytex::is_tinytex(), error = function(e) FALSE)),
           numbers = list(effort_hours = hours, sites = sites,
                          events = n(d$detections), species = n(d$species_counts)),
           sections = list(effort = has(d$effort), detections = has(d$species_counts),
@@ -318,7 +315,8 @@ job_report_preview <- function(cfg) {
 
 job_report <- function(cfg) {
   run <- cfg$birdnet$run_id
-  formats <- intersect(unlist(job$formats) %||% c("html", "excel"), c("html", "pdf", "excel"))
+  # PDF is not offered by the app (pamflow's PDF needs LaTeX, which is not bundled)
+  formats <- intersect(unlist(job$formats) %||% c("html", "excel"), c("html", "excel"))
   if (!length(formats)) return(list(status = "failed", message = "Choose at least one format."))
   pd_emit("stage", stage = "report", label = "Writing the report", formats = formats)
   res <- with_log_events(pam_run_stage("08_report", pam_report, cfg, run_id = run,

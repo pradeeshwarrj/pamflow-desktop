@@ -1,10 +1,11 @@
 /**
- * Step 8 · Report: pamflow's HTML / Excel (/ PDF) report of the run.
+ * Step 8 · Report: pamflow's HTML and Excel report of the run.
+ * (PDF is not offered: pamflow's PDF needs LaTeX, which the app does not bundle.)
  */
 import { runJob } from './tauri';
 
 export interface ReportFile {
-  format: 'html' | 'pdf' | 'excel';
+  format: 'html' | 'excel';
   path: string;
   exists: boolean;
   updated: string | null;
@@ -18,7 +19,6 @@ export interface ReportPreview {
   formats: string[] | string | null;
   reports_dir: string;
   pandoc: boolean;
-  latex: boolean;
   numbers: { effort_hours: number | null; sites: number | null; events: number; species: number };
   sections: Record<'effort' | 'detections' | 'richness' | 'activity' | 'validation' | 'occupancy', boolean>;
   top_species: { species: string; events: number; sites: number }[];

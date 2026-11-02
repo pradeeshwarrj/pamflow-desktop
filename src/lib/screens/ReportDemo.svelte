@@ -17,7 +17,7 @@
     effort: true, detections: true, richness: true, activity: true, validation: true, occupancy: false
   });
 
-  let format = $state<'html' | 'pdf' | 'xlsx'>('html');
+  let format = $state<'html' | 'xlsx'>('html');
 
   const maxFunnel = Math.max(...r.funnel.map((f) => f.value));
   const totalEvents = r.species.reduce((sum, s) => sum + s.n, 0);
@@ -66,8 +66,7 @@
     <Card title={t('report.format')}>
       <Pills label={t('report.format')} bind:value={format} options={[
         { value: 'html', label: 'HTML' },
-        { value: 'pdf', label: 'PDF' },
-        { value: 'xlsx', label: 'Excel' }
+                { value: 'xlsx', label: 'Excel' }
       ]} />
       <Button variant="primary" size="lg" full>{t('report.create')}</Button>
     </Card>

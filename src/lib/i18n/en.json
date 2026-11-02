@@ -224,12 +224,12 @@
     "colEvents": "Events",
     "colSites": "Sites",
     "needsPandoc": "needs pandoc in the runtime",
-    "needsLatex": "needs LaTeX (not included yet)",
     "writing": "Writing…",
     "notWritten": "Not written: {formats}. See the log for pamflow's message.",
     "filesTitle": "Report files",
     "open": "Open",
-    "noFiles": "No report yet."
+    "noFiles": "No report yet.",
+    "pdfTip": "Need a PDF? Open the HTML report and print it to PDF from your browser."
   },
   "process": {
     "title": "Clean the detections",
