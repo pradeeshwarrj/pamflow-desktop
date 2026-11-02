@@ -11,7 +11,8 @@ keep the window open: when you save a file, the app updates by itself.
 | The order of steps, or which pastel a step uses | `src/lib/config/stages.ts` |
 | The demo numbers shown on screen | `src/lib/mock/demo.ts` |
 | An icon, or add a new one | `src/lib/components/Icon.svelte` |
-| The logo | `src/lib/components/Logo.svelte` |
+| The logo in the sidebar | `src/lib/components/Logo.svelte` |
+| The app icon (installer, taskbar, dock) | replace `src-tauri/icons/app-icon.png` (1024×1024; drawing in `app-icon.svg`), then run `pnpm tauri icon src-tauri/icons/app-icon.png` and delete the `android` and `ios` folders it makes |
 | The look of all buttons / cards / pills | `src/lib/components/Button.svelte`, `Card.svelte`, `Pills.svelte` |
 | What is on one screen | `src/routes/<step>/+page.svelte` (Project is `src/routes/+page.svelte`) |
 | Window size and title | `src-tauri/tauri.conf.json` → `app.windows` |
