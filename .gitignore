@@ -13,3 +13,6 @@ vite.config.ts.timestamp-*
 .Rhistory
 .RData
 .Rproj.user/
+
+# packed runtime for installer builds (made by the release workflow)
+/dist-runtime

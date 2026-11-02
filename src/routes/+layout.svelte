@@ -8,6 +8,9 @@
   import Sidebar from '$lib/components/Sidebar.svelte';
   import { stageForPath, accentStyle } from '$lib/config/stages';
   import { theme } from '$lib/theme/theme.svelte';
+  import SetupScreen from '$lib/components/SetupScreen.svelte';
+  import { setup, checkSetup } from '$lib/backend/setup.svelte';
+  import { onMount } from 'svelte';
 
   let { children }: { children: Snippet } = $props();
 
@@ -16,8 +19,16 @@
   $effect(() => {
     document.documentElement.dataset.theme = theme.mode;
   });
+
+  // An installed pamflow unpacks its analysis engine once, on first launch.
+  onMount(() => { checkSetup().catch(() => (setup.checked = true)); });
 </script>
 
+{#if !setup.checked}
+  <!-- checking takes a moment; show nothing rather than a flash of the app -->
+{:else if setup.needed}
+  <SetupScreen />
+{:else}
 <div class="app">
   <Sidebar current={stage.id} />
   <main style={accentStyle(stage.palette)}>
@@ -26,6 +37,7 @@
     </div>
   </main>
 </div>
+{/if}
 
 <style>
   .app { display: flex; height: 100vh; }

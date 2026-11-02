@@ -522,5 +522,17 @@
     "next": "Next: Scan",
     "notEnoughSpace": "Possibly not enough free space (FLAC files usually need less than the raw WAV files)",
     "prefixHint": "Used for every file in the raw folder, in the file names and as the folder name. Use it when the raw folder holds one grid (for example one recorder's card), and standardize one grid at a time."
+  },
+  "setup": {
+    "title": "Setting up pamflow",
+    "intro": "This happens once, the first time pamflow starts. It unpacks the analysis engine (R, Python, BirdNET and ffmpeg) that came with the installer. No internet is needed.",
+    "steps": {
+      "space": "Checking free disk space",
+      "unpack": "Unpacking R, Python, BirdNET and ffmpeg",
+      "extras": "Adding pamflow and its R packages",
+      "check": "Checking that pamflow starts"
+    },
+    "time": "{time} so far · usually 1–5 minutes",
+    "retry": "Try again"
   }
 }

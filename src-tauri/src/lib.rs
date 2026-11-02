@@ -1,11 +1,13 @@
 // Rust side of pamflow Desktop.
 //
 //   runtime.rs  finds the bundled R/Python runtime and prepares commands in it
+//   setup.rs    first launch: unpacks the runtime that ships in the installer
 //   jobs.rs     starts, follows and stops pamflow jobs (via bridge/run_job.R)
 //   validation.rs  saves validation answers, shows clips and spectrograms
 
 mod jobs;
 mod runtime;
+mod setup;
 mod validation;
 
 use tauri::Manager;
@@ -18,6 +20,8 @@ pub fn run() {
         .manage(jobs::Jobs::default())
         .invoke_handler(tauri::generate_handler![
             jobs::runtime_info,
+            setup::setup_status,
+            setup::start_setup,
             jobs::free_space_gb,
             jobs::start_job,
             jobs::stop_job,

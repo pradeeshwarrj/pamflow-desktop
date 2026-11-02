@@ -4,8 +4,9 @@
 //!
 //! Where the runtime is looked for, in order:
 //!   1. the PAMFLOW_RUNTIME environment variable (a runtime folder)
-//!   2. inside the installed app (Phase 4): <resources>/runtime
-//!   3. while developing: <project>/runtime/.pixi/envs/default
+//!   2. the installed app's runtime, unpacked on first launch (see setup.rs)
+//!   3. a runtime folder inside the app: <resources>/runtime
+//!   4. while developing: <project>/runtime/.pixi/envs/default
 //!      (made by `pixi install` in the runtime folder)
 
 use serde::Serialize;
@@ -39,6 +40,9 @@ impl Runtime {
         let mut candidates: Vec<PathBuf> = Vec::new();
         if let Ok(p) = std::env::var("PAMFLOW_RUNTIME") {
             candidates.push(PathBuf::from(p));
+        }
+        if let Some(p) = crate::setup::installed_prefix(app) {
+            candidates.push(p);
         }
         if let Ok(d) = app.path().resource_dir() {
             candidates.push(d.join("runtime"));
