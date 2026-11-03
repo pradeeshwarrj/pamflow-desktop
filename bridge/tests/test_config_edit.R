@@ -104,4 +104,22 @@ if (length(args) && file.exists(args[1])) {
   }
   ok(same && identical(names(p), names(p0)), "template: every other setting unchanged")
 }
+
+# ---- new settings files -------------------------------------------------
+tpl_lines <- if (length(commandArgs(TRUE)) && file.exists(commandArgs(TRUE)[1])) readLines(commandArgs(TRUE)[1], warn = FALSE) else cfg_text
+proj <- file.path(tempdir(), "my project")
+std <- pd_new_config_lines(tpl_lines, proj, file.path(proj, "config", "config.yml"), version = "0.6.0", date = "2026-11-03")
+ok(std[1] == "# pamflow project settings" && grepl("2026-11-03", std[2]) && grepl("pamflow 0.6.0", std[2]), "new file: header")
+ok(identical(parse(std)$paths$project_root, parse(tpl_lines)$paths$project_root), "new file in <project>/config: project_root left as in the template")
+ok(identical(parse(std)[names(parse(tpl_lines))], parse(tpl_lines)), "new file: every setting equals the template")
+ok(all(tpl_lines %in% std), "new file: template lines kept as they are")
+elsewhere <- file.path(tempdir(), "shared", "study.yml")
+pin <- pd_new_config_lines(tpl_lines, proj, elsewhere)
+ok(identical(parse(pin)$paths$project_root, gsub("\\\\", "/", normalizePath(proj, winslash = "/", mustWork = FALSE))),
+   "new file elsewhere: project_root pinned to the project folder")
+ok(identical(pd_derive_root(file.path(proj, "config", "x.yml")), gsub("\\\\", "/", normalizePath(proj, winslash = "/", mustWork = FALSE))) ||
+     identical(tolower(pd_derive_root(file.path(proj, "config", "x.yml"))), tolower(normalizePath(proj, winslash = "/", mustWork = FALSE))),
+   "root derived from config/ folder")
+f <- tempfile(fileext = ".yml"); pd_write_lines(std, f)
+ok(identical(readLines(f, warn = FALSE), std) && !any(readBin(f, "raw", file.size(f)) == as.raw(13)), "written with plain line endings, read back unchanged")
 cat("all config editor tests passed\n")

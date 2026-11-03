@@ -3,6 +3,7 @@
   "bundle": {
     "resources": {
       "../bridge/*.R": "bridge/",
+      "../bridge/*.py": "bridge/",
       "../dist-runtime/*": "runtime-pack/"
     },
     "windows": {

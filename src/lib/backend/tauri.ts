@@ -27,7 +27,8 @@ export interface JobSpec {
     | 'occupancy_build' | 'occupancy_results' | 'model_input'
     | 'report_preview' | 'report' | 'config_save'
     | 'scan' | 'scan_results' | 'filter_info' | 'filter'
-    | 'std_state' | 'std_plan' | 'standardize';
+    | 'std_state' | 'std_plan' | 'standardize'
+    | 'project_create' | 'config_save_as' | 'model_info' | 'model_download';
   project: string;
   birdnet?: Record<string, unknown>;
   sample_n?: number | null;
@@ -41,6 +42,10 @@ export interface JobSpec {
   changes?: { section: string; key: string; value: unknown }[];
   filter?: Record<string, unknown>;
   std?: Record<string, unknown>;
+  /** The settings file in use, wherever it is (added to every job automatically). */
+  config?: string;
+  /** project_create / config_save_as: the settings file to write. */
+  target?: string;
   force?: boolean;
 }
 
@@ -48,8 +53,16 @@ export function runtimeInfo(): Promise<RuntimeInfo> {
   return invoke<RuntimeInfo>('runtime_info');
 }
 
+/**
+ * The settings file the open project uses. Every job carries it, so a
+ * settings file kept anywhere (not only <project>/config/config.yml) works.
+ * Set by the project store.
+ */
+export const jobContext = { config: '' };
+
 export function startJob(spec: JobSpec): Promise<string> {
-  return invoke<string>('start_job', { spec });
+  const withConfig = spec.config === undefined && jobContext.config ? { ...spec, config: jobContext.config } : spec;
+  return invoke<string>('start_job', { spec: withConfig });
 }
 
 export function stopJob(id: string): Promise<void> {
@@ -74,6 +87,13 @@ export async function pickFolder(title: string): Promise<string | null> {
 export async function pickFile(title: string, name: string, extensions: string[]): Promise<string | null> {
   const { open } = await import('@tauri-apps/plugin-dialog');
   const picked = await open({ directory: false, multiple: false, title, filters: [{ name, extensions }] });
+  return typeof picked === 'string' ? picked : null;
+}
+
+/** Ask where to save a file. `extensions` like ['yml']. Returns null if they cancel. */
+export async function pickSavePath(title: string, defaultPath: string, name: string, extensions: string[]): Promise<string | null> {
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const picked = await save({ title, defaultPath, filters: [{ name, extensions }] });
   return typeof picked === 'string' ? picked : null;
 }
 
@@ -116,7 +136,11 @@ export function failureMessage(events: JobEvent[], fallback: string): string {
  * Run a job and collect its events until it ends. `onEvent` (optional)
  * sees each event as it arrives, e.g. to show which stage is running.
  */
-export async function runJob(spec: JobSpec, onEvent?: (event: JobEvent) => void): Promise<JobEvent[]> {
+export async function runJob(
+  spec: JobSpec,
+  onEvent?: (event: JobEvent) => void,
+  onStart?: (id: string) => void
+): Promise<JobEvent[]> {
   const events: JobEvent[] = [];
   let jobId: string | null = null;
   const early: { id: string; event: JobEvent }[] = [];
@@ -138,6 +162,7 @@ export async function runJob(spec: JobSpec, onEvent?: (event: JobEvent) => void)
       })
       .then((id) => {
         jobId = id;
+        onStart?.(id);
         early.splice(0).forEach((e) => take(e.id, e.event));
       })
       .catch((e) => {

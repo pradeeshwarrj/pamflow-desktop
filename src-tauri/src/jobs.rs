@@ -74,6 +74,9 @@ pub fn start_job(app: AppHandle, jobs: State<'_, Jobs>, spec: Value) -> Result<S
     let mut spec = spec;
     if let Some(obj) = spec.as_object_mut() {
         obj.insert("runtime".into(), json!(rt.prefix));
+        if let Some(models) = crate::setup::models_root(&app) {
+            obj.insert("models_dir".into(), json!(models));
+        }
     } else {
         return Err("job description must be an object".into());
     }

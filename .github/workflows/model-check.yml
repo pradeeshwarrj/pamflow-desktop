@@ -1,0 +1,77 @@
+# Does BirdNET's own (global) model work in pamflow Desktop?
+#
+# On every operating system: downloads the model with the app's own script
+# (bridge/download_model.py, from zenodo.org), loads it the way pamflow loads
+# a custom classifier, runs a real detection on a short test recording, and
+# then does a full "new project -> point the settings at the model -> Detect"
+# through the app's engine (bridge/run_job.R).
+#
+# Run it from the Actions tab ("Run workflow").
+
+name: default model check
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "bridge/download_model.py"
+      - "runtime/scripts/check_default_model.R"
+      - ".github/workflows/model-check.yml"
+
+jobs:
+  model:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows, os: windows-latest }
+          - { name: macOS (Apple Silicon), os: macos-15 }
+          - { name: macOS (Intel), os: macos-15-intel }
+          - { name: Linux, os: ubuntu-latest }
+    defaults:
+      run:
+        shell: bash
+        working-directory: runtime
+    env:
+      MODELS: ${{ github.workspace }}/models-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.9.3
+        with:
+          manifest-path: runtime/pixi.toml
+          locked: true
+          cache: true
+          cache-write: false
+
+      - name: Add tuneR, seewave and pamflow
+        run: pixi run setup-r
+
+      - name: Download BirdNET's model (the app's script)
+        run: pixi run python ../bridge/download_model.py --dest "$MODELS/birdnet-v2.4"
+
+      - name: Make a short test recording
+        run: |
+          cat > ../make_test_wav.py <<'PY'
+          import math, random, struct, wave
+          random.seed(1)
+          with wave.open("../test.wav", "wb") as w:
+              w.setnchannels(1); w.setsampwidth(2); w.setframerate(48000)
+              frames = bytearray()
+              for i in range(48000 * 9):
+                  t = i / 48000
+                  v = 0.15 * math.sin(2 * math.pi * 3200 * t) * (1 if (t % 1) < 0.3 else 0) + random.uniform(-0.02, 0.02)
+                  frames += struct.pack("<h", int(max(-1, min(1, v)) * 32767))
+              w.writeframes(bytes(frames))
+          PY
+          pixi run python ../make_test_wav.py
+
+      - name: Load the model and run a detection (pamflow's Python runner)
+        run: pixi run smoke "$MODELS/birdnet-v2.4/audio-model.tflite" "$MODELS/birdnet-v2.4/labels/en_us.txt" "$GITHUB_WORKSPACE/test.wav"
+
+      - name: New project, settings, Detect (through the app's engine)
+        run: pixi run Rscript scripts/check_default_model.R "$MODELS" "$GITHUB_WORKSPACE/test.wav"

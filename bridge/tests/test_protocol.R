@@ -34,6 +34,21 @@ f2 <- pd_find_config(file.path(d, "config", "config.yml"))
 ok(f2$root == normalizePath(d, winslash = "/"), "config.yml path -> project root above config/")
 ok(is.null(pd_find_config(tempfile())), "missing project -> NULL")
 
+# a settings file anywhere (explicit config), and a pinned project_root
+elsewhere <- tempfile(); dir.create(elsewhere)
+writeLines("paths: {}", file.path(elsewhere, "my_settings.yml"))
+f3 <- pd_find_config(d, config = file.path(elsewhere, "my_settings.yml"))
+ok(basename(f3$config) == "my_settings.yml" && f3$root == normalizePath(elsewhere, winslash = "/"),
+   "explicit config wins; relative project_root -> the file's own folder")
+proj <- tempfile(); dir.create(proj)
+writeLines(c("paths:", paste0("  project_root: \"", normalizePath(proj, winslash = "/"), "\"")), file.path(elsewhere, "pinned.yml"))
+f4 <- pd_find_config("", config = file.path(elsewhere, "pinned.yml"))
+ok(f4$root == normalizePath(proj, winslash = "/"), "absolute project_root in the file decides the project folder")
+ok(is.null(pd_find_config(d, config = file.path(elsewhere, "gone.yml"))), "explicit config that is missing -> NULL")
+ok(is.null(pd_find_config("")), "empty project -> NULL")
+ok(pd_is_absolute("C:/data") && pd_is_absolute("C:\\data") && pd_is_absolute("/home/x") && !pd_is_absolute(".") &&
+     !pd_is_absolute("data/raw"), "absolute path check")
+
 # checkpoint counting ignores blank and repeated lines
 ck <- tempfile(); writeLines(c("a.wav", "", "b.wav", "a.wav"), ck)
 ok(pd_checkpoint_count(ck) == 2, "checkpoint count")

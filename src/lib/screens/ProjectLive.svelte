@@ -8,6 +8,7 @@
   import Button from '$lib/components/Button.svelte';
   import ProjectPicker from './ProjectPicker.svelte';
   import SaveBar from '$lib/components/SaveBar.svelte';
+  import ModelCard from '$lib/components/ModelCard.svelte';
   import { pickFolder, pickFile } from '$lib/backend/tauri';
   import { project } from '$lib/backend/project.svelte';
   import { settings, syncDraft, id } from '$lib/backend/settings.svelte';
@@ -56,14 +57,6 @@
   async function chooseSheet() {
     const p = await pickFile(t('settings.sheet'), t('settings.sheetFiles'), ['csv', 'txt']);
     if (p) set('paths', 'deployment_sheet', slash(p));
-  }
-  async function chooseModel() {
-    const p = await pickFile(t('settings.modelFile'), 'BirdNET model', ['tflite']);
-    if (!p) return;
-    const path = slash(p);
-    const cut = path.lastIndexOf('/');
-    set('birdnet', 'model_dir', path.slice(0, cut));
-    set('birdnet', 'classifier_name', path.slice(cut + 1).replace(/\.tflite$/i, ''));
   }
 
   const sizeLabel = $derived(
@@ -123,23 +116,7 @@
       {/if}
     </Card>
 
-    <Card title={t('project.model')} hint={t('settings.modelHint')}>
-      <div class="row">
-        <div class="file">
-          <span class="mono">{str('birdnet', 'classifier_name') || '–'}.tflite</span>
-          <span class="muted small">{str('birdnet', 'model_dir')}</span>
-        </div>
-        <Button onclick={chooseModel}>{t('settings.chooseModel')}</Button>
-      </div>
-      {#if f.model_found && f.labels_found}
-        <Badge palette="mint">{t('settings.modelReady', { n: f.n_labels ?? 0 })}</Badge>
-      {:else}
-        <Badge palette="peach">{t('settings.modelNotFound')}</Badge>
-      {/if}
-      <label class="sub" for="s-run">{t('settings.runName')}</label>
-      <input id="s-run" class="input" value={str('birdnet', 'run_id')}
-        oninput={(e) => set('birdnet', 'run_id', e.currentTarget.value)} />
-    </Card>
+    <ModelCard />
 
     <Card title={t('settings.detection')} hint={t('settings.detectionHint')}>
       <div class="between">
@@ -257,14 +234,11 @@
   .row { display: flex; gap: var(--space-2); align-items: center; }
   .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
   .muted { font-size: var(--text-sm); color: var(--muted); }
-  .small { font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sub { font-size: var(--text-sm); color: var(--muted); margin-top: var(--space-1); }
   .strong { font-weight: var(--weight-semibold); }
   .between { display: flex; justify-content: space-between; align-items: baseline; }
   .value { font-weight: var(--weight-semibold); color: var(--accent-ink); font-variant-numeric: tabular-nums; }
   input[type='range'] { width: 100%; }
-  .file { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: var(--control-height); justify-content: center;
-    padding: 0 var(--space-3); border-radius: var(--radius-md); background: var(--soft); }
   .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
   .pair > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
   .check { display: flex; align-items: center; gap: var(--space-2); min-height: 40px; font-size: var(--text-sm); cursor: pointer; }

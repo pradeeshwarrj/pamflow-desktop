@@ -26,7 +26,7 @@
   },
   "project": {
     "title": "Set up your project",
-    "intro": "Open your pamflow project folder. Settings are read from and saved to its config.yml (comments kept, previous version backed up), and every result is saved inside the project.",
+    "intro": "Pick the folder for your project. If it has no settings yet, pamflow starts it with its default settings, ready to use. Change them below and they are saved to the settings file, which can live wherever you like. Every result is saved inside the project.",
     "recordingsFound": "recordings found",
     "ofAudio": "of audio",
     "deploymentsInSheet": "deployments in sheet",
@@ -50,7 +50,7 @@
     "save": "Save and scan recordings",
     "advanced": "Advanced settings",
     "folderTitle": "pamflow project",
-    "folderHint": "The folder that holds config/config.yml",
+    "folderHint": "Open a project folder, start a new one, or open a settings file kept somewhere else",
     "open": "Open",
     "checking": "Reading the project…",
     "configFound": "config.yml found",
@@ -59,7 +59,22 @@
     "notScanned": "Not scanned yet — Detect scans first",
     "modelOk": "Model found",
     "modelMissing": "Model not found: {file}",
-    "audioMissing": "Recordings folder not found: {folder}"
+    "audioMissing": "Recordings folder not found: {folder}",
+    "newProject": "Start a new project…",
+    "newTitle": "Choose a folder for the new project (you can make a new folder)",
+    "openOther": "Open another settings file…",
+    "openOtherTitle": "Open a settings file",
+    "noConfigTitle": "This folder has no settings yet",
+    "noConfigBody": "pamflow can start it with its default settings, saved in {file}. You can change them on this screen afterwards.",
+    "configMissingTitle": "The settings file is missing",
+    "configMissingBody": "{file} was not found. It may have been moved or deleted.",
+    "createHere": "Start with the default settings",
+    "createElsewhere": "Save the settings somewhere else…",
+    "configCreated": "New settings file created",
+    "createdHint": "These are pamflow's default settings. Check the recordings folder, deployment sheet and BirdNET model below, then save.",
+    "settingsFile": "Settings file",
+    "showFile": "Show in folder",
+    "folderMissing": "The folder {folder} does not exist. Check the path, or use “Start a new project…” to pick one."
   },
   "detect": {
     "title": "Listening for calls",
@@ -338,7 +353,7 @@
     "sheet": "Deployment sheet",
     "sheetFiles": "Deployment sheet",
     "sheetMissing": "Deployment sheet not found",
-    "modelHint": "Your custom BirdNET classifier (.tflite) with its _Labels.txt beside it",
+    "modelHint": "BirdNET’s own model, or a classifier you trained",
     "modelFile": "BirdNET model file",
     "chooseModel": "Choose model",
     "modelReady": "Model and labels found · {n} species",
@@ -372,7 +387,10 @@
     "filterOn": "Filter the recordings before detection",
     "highpass": "Remove sound below (Hz)",
     "filterOrder": "Filter order (steepness)",
-    "filteredFolder": "Filtered recordings folder"
+    "filteredFolder": "Filtered recordings folder",
+    "saveAs": "Save as…",
+    "saveAsTitle": "Save the settings as",
+    "yamlFiles": "Settings files (.yml)"
   },
   "scan": {
     "title": "Scan recordings",
@@ -534,5 +552,21 @@
     },
     "time": "{time} so far · usually 1–5 minutes",
     "retry": "Try again"
+  },
+  "model": {
+    "default": "BirdNET default (global)",
+    "custom": "My own classifier",
+    "defaultAbout": "BirdNET’s own model, trained on about 6,500 species of birds from around the world. It needs no training and works for any project.",
+    "download": "Download the model",
+    "again": "Try again",
+    "downloadSize": "About 73 MB, downloaded once from zenodo.org and kept for all your projects.",
+    "downloading": "Downloading the model",
+    "downloadingOf": "Downloading… {done} of {total} MB",
+    "unpacking": "Unpacking…",
+    "cancel": "Cancel",
+    "ready": "BirdNET v{version} · {n} species",
+    "showFolder": "Show in folder",
+    "language": "Species names in",
+    "license": "BirdNET’s models are free for research and other non-commercial use (CC BY-NC-SA 4.0). Please cite Kahl et al. (2021), BirdNET: A deep learning solution for avian diversity monitoring, Ecological Informatics 61, 101236."
   }
 }

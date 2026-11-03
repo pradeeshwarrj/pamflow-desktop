@@ -5,10 +5,11 @@
 <script lang="ts">
   import Button from './Button.svelte';
   import { showFolder } from '$lib/backend/tauri';
-  import { settings, resetDraft, changedSettings, saveSettings } from '$lib/backend/settings.svelte';
+  import { settings, resetDraft, changedSettings, saveSettings, saveSettingsAs } from '$lib/backend/settings.svelte';
   import { t } from '$lib/i18n';
 
   const nChanges = $derived(changedSettings().length);
+  const saveAs = () => saveSettingsAs(t('settings.saveAsTitle'), t('settings.yamlFiles'));
 </script>
 
 <div class="savebar" class:dirty={nChanges > 0}>
@@ -16,15 +17,22 @@
     <span>{t('settings.unsaved', { n: nChanges })}</span>
     <div class="actions">
       <Button variant="ghost" onclick={resetDraft} disabled={settings.saving}>{t('settings.discard')}</Button>
-      <Button variant="primary" onclick={saveSettings} disabled={settings.saving}>
+      <Button onclick={saveAs} disabled={settings.saving}>
+        {t('settings.saveAs')}
+      </Button>
+      <Button variant="primary" onclick={() => saveSettings()} disabled={settings.saving}>
         {settings.saving ? t('settings.saving') : t('settings.save')}
       </Button>
     </div>
   {:else if settings.message}
     <span>{t('settings.saved', { n: settings.message })}</span>
-    <Button variant="ghost" size="sm" onclick={() => showFolder(settings.backup)}>{t('settings.showBackup')}</Button>
+    <div class="actions">
+      {#if settings.backup}<Button variant="ghost" size="sm" onclick={() => showFolder(settings.backup)}>{t('settings.showBackup')}</Button>{/if}
+      <Button variant="ghost" size="sm" onclick={saveAs}>{t('settings.saveAs')}</Button>
+    </div>
   {:else}
     <span class="muted">{t('settings.allSaved')}</span>
+    <Button variant="ghost" size="sm" onclick={saveAs}>{t('settings.saveAs')}</Button>
   {/if}
 </div>
 {#if settings.error}<p class="problem">{settings.error}</p>{/if}

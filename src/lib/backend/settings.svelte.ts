@@ -6,8 +6,8 @@
  * (comments and everything else stay), checks the file with pamflow's own
  * reader first, and keeps a dated backup in config/backups/.
  */
-import { runJob, failureMessage } from './tauri';
-import { project, type ProjectFacts } from './project.svelte';
+import { runJob, failureMessage, pickSavePath } from './tauri';
+import { project, applyInspect } from './project.svelte';
 export type { Setting } from './project.svelte';
 
 export const settings = $state({
@@ -58,22 +58,34 @@ export function changedSettings(): { section: string; key: string; value: unknow
     });
 }
 
-export async function saveSettings() {
+/**
+ * Write the settings (with anything not yet saved) to the settings file, or,
+ * with `target`, to a different file wherever the user wants. The app then
+ * keeps using that file. Either way the previous version is backed up.
+ */
+export async function saveSettings(target?: string) {
+  if (typeof target !== 'string') target = undefined; // e.g. a click event
   const changes = changedSettings();
-  if (!changes.length || !project.folder) return;
+  if (!project.folder || (!changes.length && !target)) return;
   settings.saving = true;
   settings.error = '';
   settings.message = '';
   try {
-    const events = await runJob({ job: 'config_save', project: project.folder, changes });
+    const events = await runJob(
+      target
+        ? { job: 'config_save_as', project: project.folder, changes, target }
+        : { job: 'config_save', project: project.folder, changes }
+    );
     const saved = events.find((e) => e.type === 'config_saved');
-    const facts = events.find((e) => e.type === 'project');
     const finished = events.find((e) => e.type === 'finished');
     if (saved && finished?.status === 'ok') {
-      if (facts) project.facts = facts as unknown as ProjectFacts;
+      applyInspect(events);
+      project.created = '';
       settings.backup = String(saved.backup ?? '');
       settings.message = `${changes.length}`;
       resetDraft();
+    } else if (!saved && finished?.status === 'ok') {
+      /* nothing to do */
     } else {
       settings.error = failureMessage(events, 'The settings could not be saved.');
     }
@@ -82,4 +94,11 @@ export async function saveSettings() {
   } finally {
     settings.saving = false;
   }
+}
+
+/** Ask where to save the settings, then save them there. */
+export async function saveSettingsAs(title: string, kindName: string) {
+  const current = project.config || project.facts?.config || '';
+  const picked = await pickSavePath(title, current, kindName, ['yml', 'yaml']);
+  if (picked) await saveSettings(picked);
 }

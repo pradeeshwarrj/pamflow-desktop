@@ -5,13 +5,16 @@
 #
 # job.json (written by the app):
 #   {
-#     "job": "inspect" | "config_save" | "std_state" | "std_plan" | "standardize" | "scan" | "scan_results" | "filter_info" | "filter" |
+#     "job": "inspect" | "project_create" | "config_save" | "config_save_as" | "model_info" | "model_download" | "std_state" | "std_plan" | "standardize" | "scan" | "scan_results" | "filter_info" | "filter" |
 #            "detect" | "process" | "process_results" |
 #            "validation_state" | "validation_draw" | "validation_metrics" |
 #            "occupancy_build" | "occupancy_results" | "model_input" |
 #            "report_preview" | "report",
 #     "project": "<project folder or config.yml>",
+#     "config": "<settings file anywhere; wins over the folder's own>",   (optional)
+#     "target": "<new settings file>",     (project_create, config_save_as; project_create defaults to <project>/config/config.yml)
 #     "runtime": "<bundled runtime folder>",
+#     "models_dir": "<folder for downloaded models>",   (set by the app)
 #     "birdnet": { "workers": 4, "min_confidence": 0.3 },   (optional overrides)
 #     "filter": { "workers": 4 },                            (optional overrides)
 #     "std": { "target_format": "flac" },                     (Stage 00 overrides, optional)
@@ -64,10 +67,55 @@ if (file.exists(patches)) {
   pam_desktop_apply_patches()
 }
 
+# ---- a new project: write the default settings file first -----------------
+# project_create makes <folder>/config/config.yml (or the chosen file) from
+# pamflow's own default settings, then carries on as "inspect" on it.
+pd_create_project <- function(job) {
+  folder <- if (length(job$project) == 1 && nzchar(job$project)) pd_norm(job$project) else ""
+  if (!nzchar(folder)) return(list(error = "No project folder was given."))
+  if (!dir.exists(folder) && !dir.create(folder, recursive = TRUE, showWarnings = FALSE)) {
+    return(list(error = sprintf("Could not create the folder %s.", folder)))
+  }
+  target <- if (length(job$target) == 1 && nzchar(job$target)) pd_norm(job$target) else file.path(folder, "config", "config.yml")
+  if (!grepl("\\.ya?ml$", target, ignore.case = TRUE)) target <- paste0(target, ".yml")
+  if (file.exists(target)) return(list(error = sprintf("A settings file already exists there: %s", target)))
+  template <- system.file("extdata", "config_template.yml", package = "pamflow")
+  if (!nzchar(template)) return(list(error = "pamflow's default settings file was not found in the analysis engine."))
+  lines <- pd_new_config_lines(readLines(template, warn = FALSE, encoding = "UTF-8"), folder, target,
+                                             version = as.character(utils::packageVersion("pamflow")))
+  if (!dir.exists(dirname(target)) && !dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)) {
+    return(list(error = sprintf("Could not create the folder %s.", dirname(target))))
+  }
+  pd_write_lines(lines, target)
+  old <- setwd(folder)
+  on.exit(setwd(old), add = TRUE)
+  problem <- tryCatch({ pam_config_read(target); NULL }, error = function(e) conditionMessage(e))
+  if (!is.null(problem)) {
+    unlink(target)
+    return(list(error = paste("pamflow would not accept the default settings:", problem)))
+  }
+  list(config = target, root = folder)
+}
+
+if (identical(job$job, "project_create")) {
+  made <- pd_create_project(job)
+  if (!is.null(made$error)) fail(made$error)
+  pd_emit("project_created", config = made$config, root = made$root)
+  job$project <- made$config
+  job$config <- NULL
+  job$job <- "inspect"        # then report the new project like any other
+}
+
 # ---- find the project and read its config -------------------------------
-found <- pd_find_config(job$project)
+found <- pd_find_config(job$project, job$config)
 if (is.null(found)) {
-  fail(sprintf("No pamflow config found in %s (looked for config/config.yml and config.yml).",
+  if (identical(job$job, "inspect")) {
+    folder <- if (length(job$project) == 1) pd_norm(job$project) else ""
+    pd_emit("no_config", folder = folder, exists = dir.exists(folder),
+            missing_file = if (length(job$config) == 1 && nzchar(job$config)) pd_norm(job$config) else NULL,
+            suggested = file.path(folder, "config", "config.yml"))
+  }
+  fail(sprintf("No pamflow settings file found in %s (looked for config/config.yml and config.yml).",
                job$project))
 }
 setwd(found$root)          # pamflow resolves relative paths from the project folder
@@ -107,6 +155,7 @@ EDITABLE <- list(
   list("filter", "workers", "integer"),
   list("birdnet", "model_dir", "folder"),
   list("birdnet", "classifier_name", "text"),
+  list("birdnet", "labels_file", "file"),
   list("birdnet", "min_confidence", "number"),
   list("birdnet", "workers", "integer_or_null"),
   list("birdnet", "overlap_s", "number"),
@@ -148,6 +197,9 @@ job_inspect <- function(cfg) {
   name <- sub("\\.tflite$", "", bc$classifier_name %||% "", ignore.case = TRUE)
   model_file <- if (!is.null(model_dir)) file.path(model_dir, paste0(name, ".tflite")) else NA
   labels_file <- if (!is.null(model_dir)) file.path(model_dir, paste0(name, "_Labels.txt")) else NA
+  if (is.character(bc$labels_file) && length(bc$labels_file) == 1 && nzchar(bc$labels_file)) {
+    labels_file <- if (fs::is_absolute_path(bc$labels_file)) bc$labels_file else file.path(cfg$paths$project_root, bc$labels_file)
+  }
 
   # How the file name pattern reads a few real files.
   example <- NULL; n_unreadable_names <- NA_integer_
@@ -200,34 +252,19 @@ job_inspect <- function(cfg) {
 # Save edited settings into config.yml, keeping its comments and layout.
 # The new file is checked with pamflow's own config reader before it
 # replaces the old one, and the old one is kept as a dated backup.
-job_config_save <- function(cfg) {
-  allowed <- vapply(EDITABLE, function(e) paste(e[[1]], e[[2]], sep = "."), "")
-  changes <- job$changes
-  if (!length(changes)) return(list(status = "ok", message = "Nothing to save."))
-  for (ch in changes) {
-    if (!paste(ch$section, ch$key, sep = ".") %in% allowed) {
-      return(list(status = "failed", message = paste("This setting cannot be changed here:", ch$section, ch$key)))
-    }
-  }
-  path <- found$config
-  bytes <- readBin(path, "raw", file.size(path))
-  crlf <- length(bytes) > 1 && any(bytes[-1] == as.raw(10) & bytes[-length(bytes)] == as.raw(13))
-  lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
-  new_lines <- pd_yaml_apply(lines, changes)
-
-  write_lines <- function(x, file) {
-    con <- file(file, open = "wb")
-    on.exit(close(con))
-    writeBin(charToRaw(enc2utf8(paste0(paste(x, collapse = if (crlf) "\r\n" else "\n"), if (crlf) "\r\n" else "\n"))), con)
-  }
-
-  # check the new file with pamflow before replacing anything
+# Check a new version of a settings file with pamflow, back up the old one, write.
+#   path       the settings file to write
+#   new_lines  its new content
+#   changes    the settings that changed (to read back and compare)
+#   crlf       keep Windows line endings
+# Returns list(ok = TRUE, backup = path-or-"") or list(ok = FALSE, message = why).
+commit_config <- function(path, new_lines, changes, crlf) {
   check <- file.path(dirname(path), paste0(".", basename(path), ".app-check.yml"))
-  write_lines(new_lines, check)
+  pd_write_lines(new_lines, check, crlf)
   on.exit(unlink(check), add = TRUE)
   problem <- tryCatch({ pam_config_read(check); NULL }, error = function(e) conditionMessage(e))
   if (!is.null(problem)) {
-    return(list(status = "failed", message = paste("Not saved: pamflow would not accept these settings.", problem)))
+    return(list(ok = FALSE, message = paste("Not saved: pamflow would not accept these settings.", problem)))
   }
   saved <- yaml::read_yaml(check)
   for (ch in changes) {
@@ -235,20 +272,137 @@ job_config_save <- function(cfg) {
     want <- ch$value
     if (is.list(want)) want <- unlist(want)
     if (!identical(unlist(got) %||% NULL, want %||% NULL) && !isTRUE(all.equal(unlist(got), want))) {
-      return(list(status = "failed", message = sprintf("Not saved: %s: %s would not be read back correctly.", ch$section, ch$key)))
+      return(list(ok = FALSE, message = sprintf("Not saved: %s: %s would not be read back correctly.", ch$section, ch$key)))
     }
   }
+  backup <- ""
+  if (file.exists(path)) {
+    backup_dir <- file.path(dirname(path), "backups")
+    dir.create(backup_dir, showWarnings = FALSE)
+    backup <- file.path(backup_dir, sprintf("%s.%s.bak", basename(path), format(Sys.time(), "%Y%m%d-%H%M%S")))
+    if (!file.copy(path, backup)) return(list(ok = FALSE, message = "Not saved: could not make a backup copy."))
+  }
+  pd_write_lines(new_lines, path, crlf)
+  list(ok = TRUE, backup = backup)
+}
 
-  backup_dir <- file.path(dirname(path), "backups")
-  dir.create(backup_dir, showWarnings = FALSE)
-  backup <- file.path(backup_dir, sprintf("%s.%s.bak", basename(path), format(Sys.time(), "%Y%m%d-%H%M%S")))
-  if (!file.copy(path, backup)) return(list(status = "failed", message = "Not saved: could not make a backup copy."))
-  write_lines(new_lines, path)
-  pd_emit("config_saved", n = length(changes), backup = backup)
+# Are all these changes to settings the app may edit?
+check_allowed_changes <- function(changes) {
+  allowed <- vapply(EDITABLE, function(e) paste(e[[1]], e[[2]], sep = "."), "")
+  for (ch in changes) {
+    if (!paste(ch$section, ch$key, sep = ".") %in% c(allowed, "paths.project_root")) {
+      return(paste("This setting cannot be changed here:", ch$section, ch$key))
+    }
+  }
+  NULL
+}
+
+# Content of the current settings file, with its line ending style.
+read_config_lines <- function(path) {
+  bytes <- readBin(path, "raw", file.size(path))
+  list(lines = readLines(path, warn = FALSE, encoding = "UTF-8"),
+       crlf = length(bytes) > 1 && any(bytes[-1] == as.raw(10) & bytes[-length(bytes)] == as.raw(13)))
+}
+
+job_config_save <- function(cfg) {
+  changes <- job$changes
+  if (!length(changes)) return(list(status = "ok", message = "Nothing to save."))
+  bad <- check_allowed_changes(changes)
+  if (!is.null(bad)) return(list(status = "failed", message = bad))
+  path <- found$config
+  cur <- read_config_lines(path)
+  done <- commit_config(path, pd_yaml_apply(cur$lines, changes), changes, cur$crlf)
+  if (!done$ok) return(list(status = "failed", message = done$message))
+  pd_emit("config_saved", n = length(changes), backup = done$backup)
 
   # read the saved file and report the project again
   cfg <- pam_config_read(path)
   job_inspect(cfg)
+}
+
+# Save the settings (with any unsaved changes) to a different file, wherever the
+# user wants, and carry on with that file from now on. The folders in the new
+# file keep pointing at the same project: if the file will not sit in the
+# project's config/ folder, project_root is written into it.
+job_config_save_as <- function(cfg) {
+  target <- if (length(job$target) == 1 && nzchar(job$target)) pd_norm(job$target) else ""
+  if (!nzchar(target)) return(list(status = "failed", message = "No file was chosen."))
+  if (!grepl("\\.ya?ml$", target, ignore.case = TRUE)) target <- paste0(target, ".yml")
+  if (identical(tolower(target), tolower(pd_norm(found$config)))) return(job_config_save(cfg))
+  changes <- job$changes
+  bad <- check_allowed_changes(changes)
+  if (!is.null(bad)) return(list(status = "failed", message = bad))
+  if (!dir.exists(dirname(target)) && !dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)) {
+    return(list(status = "failed", message = sprintf("Could not create the folder %s.", dirname(target))))
+  }
+  cur <- read_config_lines(found$config)
+  new_lines <- pd_yaml_apply(cur$lines, changes)
+  if (!identical(tolower(pd_derive_root(target)), tolower(pd_norm(found$root)))) {
+    new_lines <- pd_yaml_set(new_lines, "paths", "project_root", pd_norm(found$root))
+  }
+  done <- commit_config(target, new_lines, changes, cur$crlf)
+  if (!done$ok) return(list(status = "failed", message = done$message))
+  found <<- list(config = target, root = pd_config_root(target))
+  pd_emit("config_saved", n = length(changes), backup = done$backup, config = target)
+  job_inspect(pam_config_read(target))
+}
+
+# ---- BirdNET's own (global) model --------------------------------------------
+# Downloaded once into the app's models folder (shared by all projects) by
+# download_model.py, which runs in the bundled Python. pamflow then loads it
+# like a custom classifier: model_dir / classifier_name / labels_file in the
+# project's settings point at it.
+BIRDNET_MODEL_NAME <- "audio-model"
+
+global_model_dir <- function() {
+  base <- if (length(job$models_dir) == 1 && nzchar(job$models_dir)) job$models_dir
+          else file.path(tools::R_user_dir("pamflow", which = "data"), "models")
+  pd_norm(file.path(base, "birdnet-v2.4"))
+}
+
+job_model_info <- function(cfg) {
+  dir <- global_model_dir()
+  meta_file <- file.path(dir, "model.json")
+  model_file <- file.path(dir, paste0(BIRDNET_MODEL_NAME, ".tflite"))
+  meta <- if (file.exists(meta_file) && file.exists(model_file)) {
+    tryCatch(jsonlite::fromJSON(meta_file), error = function(e) NULL)
+  } else NULL
+  languages <- if (!is.null(meta) && dir.exists(file.path(dir, "labels"))) {
+    sort(sub("\\.txt$", "", list.files(file.path(dir, "labels"), pattern = "\\.txt$")))
+  } else character()
+  pd_emit("model_info",
+          dir = dir, downloaded = !is.null(meta) && length(languages) > 0,
+          name = BIRDNET_MODEL_NAME, model_file = model_file,
+          labels_dir = file.path(dir, "labels"), languages = I(languages),
+          n_species = meta$n_species %||% NA_integer_, version = meta$version %||% "2.4",
+          size_mb = if (file.exists(model_file)) round(file.size(model_file) / 1024^2, 1) else NA_real_,
+          license = meta$license %||% "CC BY-NC-SA 4.0 (non-commercial use; research and education count)")
+  list(status = "ok")
+}
+
+job_model_download <- function(cfg) {
+  dir <- global_model_dir()
+  runtime <- if (length(job$runtime) == 1 && nzchar(job$runtime)) job$runtime else Sys.getenv("CONDA_PREFIX")
+  python <- if (.Platform$OS.type == "windows") file.path(runtime, "python.exe") else file.path(runtime, "bin", "python")
+  if (!file.exists(python)) return(list(status = "failed", message = paste("The bundled Python was not found:", python)))
+  problem <- NULL
+  relay <- function(line, proc) {
+    cat(line, "\n", sep = "")                      # progress lines already use the app's protocol
+    flush(stdout())
+    if (grepl('"type": "download_failed"', line, fixed = TRUE)) {
+      problem <<- tryCatch(jsonlite::fromJSON(sub("^@@PAM ", "", line))$message, error = function(e) line)
+    }
+  }
+  args <- c("-u", file.path(bridge_dir, "download_model.py"), "--dest", dir)
+  if (isTRUE(job$force)) args <- c(args, "--force")
+  res <- tryCatch(
+    processx::run(python, args, error_on_status = FALSE, stderr_to_stdout = TRUE,
+                  stdout_line_callback = relay, echo_cmd = FALSE),
+    error = function(e) list(status = 1L, error = conditionMessage(e)))
+  if (!identical(res$status, 0L)) {
+    return(list(status = "failed", message = problem %||% res$error %||% "The model could not be downloaded."))
+  }
+  job_model_info(cfg)
 }
 
 # The cleaning rules from config.yml, for display.
@@ -773,6 +927,9 @@ result <- tryCatch(
   switch(job$job,
          inspect = job_inspect(cfg),
          config_save = job_config_save(cfg),
+         config_save_as = job_config_save_as(cfg),
+         model_info = job_model_info(cfg),
+         model_download = job_model_download(cfg),
          std_state = job_std_state(cfg),
          std_plan = job_std_plan(cfg),
          standardize = job_standardize(cfg),

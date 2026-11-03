@@ -27,19 +27,41 @@ pd_emit <- function(type, ..., con = stdout()) {
   invisible(fields)
 }
 
-#' Find a project's config file.
+#' Is this path written as an absolute path (C:/..., /home/..., ~/..., \\\\server\\...)?
+pd_is_absolute <- function(p) {
+  is.character(p) && length(p) == 1 && !is.na(p) && grepl("^([A-Za-z]:[/\\\\]|/|~|\\\\\\\\)", p)
+}
+
+pd_norm <- function(p) normalizePath(path.expand(p), winslash = "/", mustWork = FALSE)
+
+#' The project folder a settings file belongs to.
 #'
-#' Accepts a project folder (looks for config/config.yml, then config.yml)
-#' or a path straight to a .yml file.
+#' If the file pins `paths: project_root:` to an absolute folder, that folder.
+#' Otherwise the folder above `config/` when the file sits in a folder called
+#' config, or else the folder holding the file (relative folders in the file
+#' are resolved from there).
+pd_config_root <- function(config) {
+  pinned <- tryCatch(yaml::read_yaml(config)$paths$project_root, error = function(e) NULL)
+  if (pd_is_absolute(pinned)) return(pd_norm(pinned))
+  dir <- dirname(pd_norm(config))
+  if (tolower(basename(dir)) == "config") dirname(dir) else dir
+}
+
+#' Find a project's settings (config) file.
+#'
+#' `project` is a project folder (looks for config/config.yml, then
+#' config.yml) or a path straight to a .yml file. `config` is a settings file
+#' chosen explicitly, which can be anywhere; it wins over `project`.
 #' @return list(config = path, root = folder to work in), or NULL if none.
-pd_find_config <- function(project) {
-  project <- normalizePath(project, winslash = "/", mustWork = FALSE)
-  if (grepl("\\.ya?ml$", project, ignore.case = TRUE)) {
-    if (!file.exists(project)) return(NULL)
-    dir <- dirname(project)
-    root <- if (tolower(basename(dir)) == "config") dirname(dir) else dir
-    return(list(config = project, root = root))
+pd_find_config <- function(project, config = NULL) {
+  project <- if (length(project) == 1 && !is.na(project) && nzchar(project)) pd_norm(project) else ""
+  explicit <- if (length(config) == 1 && !is.na(config) && nzchar(config)) pd_norm(config) else NULL
+  yml <- if (!is.null(explicit)) explicit else if (grepl("\\.ya?ml$", project, ignore.case = TRUE)) project else NULL
+  if (!is.null(yml)) {
+    if (!file.exists(yml)) return(NULL)
+    return(list(config = yml, root = pd_config_root(yml)))
   }
+  if (!nzchar(project)) return(NULL)
   for (candidate in c("config/config.yml", "config/config.yaml", "config.yml", "config.yaml")) {
     path <- file.path(project, candidate)
     if (file.exists(path)) return(list(config = path, root = project))

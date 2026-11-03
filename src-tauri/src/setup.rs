@@ -72,6 +72,12 @@ pub fn install_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(root)
 }
 
+/// Folder for models the user downloads (shared by all projects), next to the runtimes:
+/// <data>/models, e.g. %LOCALAPPDATA%\org.pamflow.desktop\models.
+pub fn models_root(app: &AppHandle) -> Option<PathBuf> {
+    install_root(app).ok().and_then(|r| r.parent().map(|p| p.join("models")))
+}
+
 /// The unpacked runtime of this build, if its setup has finished.
 pub fn installed_prefix(app: &AppHandle) -> Option<PathBuf> {
     let p = pack(app)?;
