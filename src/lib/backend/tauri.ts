@@ -28,7 +28,8 @@ export interface JobSpec {
     | 'report_preview' | 'report' | 'config_save'
     | 'scan' | 'scan_results' | 'filter_info' | 'filter'
     | 'std_state' | 'std_plan' | 'standardize'
-    | 'project_create' | 'config_save_as' | 'model_info' | 'model_download';
+    | 'project_create' | 'config_save_as' | 'model_info' | 'model_download'
+    | 'diagnostics' | 'example_project';
   project: string;
   birdnet?: Record<string, unknown>;
   sample_n?: number | null;

@@ -1,7 +1,16 @@
 {
   "app": {
     "name": "pamflow",
-    "version": "pamflow 0.6.0 · runtime ready"
+    "version": "pamflow 0.6.0 · runtime ready",
+    "versionLine": "App {app}",
+    "runtimeMissing": "Analysis engine not found",
+    "diagnostics": "Save diagnostics",
+    "diagnosticsBusy": "Saving…",
+    "diagnosticsTitle": "Save diagnostics as",
+    "textFiles": "Text files",
+    "closeWhileRunning": "A run is in progress. If you close pamflow now it stops, and it continues where it stopped the next time you press Start.",
+    "stopAndClose": "Stop and close",
+    "keepRunning": "Keep running"
   },
   "stages": {
     "project": "Project",
@@ -74,7 +83,9 @@
     "createdHint": "These are pamflow's default settings. Check the recordings folder, deployment sheet and BirdNET model below, then save.",
     "settingsFile": "Settings file",
     "showFile": "Show in folder",
-    "folderMissing": "The folder {folder} does not exist. Check the path, or use “Start a new project…” to pick one."
+    "folderMissing": "The folder {folder} does not exist. Check the path, or use “Start a new project…” to pick one.",
+    "tryExample": "Try with example data",
+    "exampleHint": "This is pamflow’s small example project (six short tones, two grids, sample detections), saved in your Documents folder. Scan, Process, Validate, Occupancy and Report work on it. Detect needs a BirdNET model, and the example recordings are only tones."
   },
   "detect": {
     "title": "Listening for calls",

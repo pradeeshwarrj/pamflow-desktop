@@ -28,6 +28,7 @@ fs4 = "1"
 flate2 = "1"
 tar = "0.4"
 dunce = "1"
+keepawake = "0.5"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

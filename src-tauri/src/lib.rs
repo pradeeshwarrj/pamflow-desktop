@@ -25,9 +25,16 @@ pub fn run() {
             jobs::free_space_gb,
             jobs::start_job,
             jobs::stop_job,
+            jobs::close_prompt_done,
+            jobs::quit_app,
             validation::save_validation_answer,
             validation::allow_media_folder
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                jobs::on_close_requested(window, api);
+            }
+        })
         .build(tauri::generate_context!())
         .expect("error while building pamflow")
         .run(|app, event| {

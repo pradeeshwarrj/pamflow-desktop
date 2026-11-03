@@ -10,6 +10,8 @@
   import { theme } from '$lib/theme/theme.svelte';
   import SetupScreen from '$lib/components/SetupScreen.svelte';
   import { setup, checkSetup } from '$lib/backend/setup.svelte';
+  import { loadAppInfo, watchClose } from '$lib/backend/appinfo.svelte';
+  import { t } from '$lib/i18n';
   import { onMount } from 'svelte';
 
   let { children }: { children: Snippet } = $props();
@@ -21,7 +23,11 @@
   });
 
   // An installed pamflow unpacks its analysis engine once, on first launch.
-  onMount(() => { checkSetup().catch(() => (setup.checked = true)); });
+  onMount(() => {
+    checkSetup().catch(() => (setup.checked = true));
+    loadAppInfo();
+    watchClose({ message: t('app.closeWhileRunning'), title: t('app.name'), stop: t('app.stopAndClose'), keep: t('app.keepRunning') });
+  });
 </script>
 
 {#if !setup.checked}

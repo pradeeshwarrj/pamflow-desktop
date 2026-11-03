@@ -5,7 +5,7 @@
 #
 # job.json (written by the app):
 #   {
-#     "job": "inspect" | "project_create" | "config_save" | "config_save_as" | "model_info" | "model_download" | "std_state" | "std_plan" | "standardize" | "scan" | "scan_results" | "filter_info" | "filter" |
+#     "job": "inspect" | "project_create" | "config_save" | "config_save_as" | "model_info" | "model_download" | "diagnostics" | "example_project" | "std_state" | "std_plan" | "standardize" | "scan" | "scan_results" | "filter_info" | "filter" |
 #            "detect" | "process" | "process_results" |
 #            "validation_state" | "validation_draw" | "validation_metrics" |
 #            "occupancy_build" | "occupancy_results" | "model_input" |
@@ -15,6 +15,7 @@
 #     "target": "<new settings file>",     (project_create, config_save_as; project_create defaults to <project>/config/config.yml)
 #     "runtime": "<bundled runtime folder>",
 #     "models_dir": "<folder for downloaded models>",   (set by the app)
+#     "documents_dir": "<the user's Documents folder>", "app_version": "0.1.0",   (set by the app)
 #     "birdnet": { "workers": 4, "min_confidence": 0.3 },   (optional overrides)
 #     "filter": { "workers": 4 },                            (optional overrides)
 #     "std": { "target_format": "flac" },                     (Stage 00 overrides, optional)
@@ -65,6 +66,106 @@ patches <- file.path(bridge_dir, "pamflow_patches.R")
 if (file.exists(patches)) {
   source(patches)
   pam_desktop_apply_patches()
+}
+
+# ---- diagnostics: one readable text file to attach to a bug report ----------
+# Versions, system, the settings file and the tail of pamflow's logs. It works
+# without an open project. Paths (and so a user name) can appear in it; the
+# app tells the user to look it over before sending.
+pd_diagnostics <- function(job, found) {
+  target <- if (length(job$target) == 1 && nzchar(job$target)) pd_norm(job$target) else ""
+  if (!nzchar(target)) return(list(error = "No file was chosen."))
+  say <- function(...) paste0(...)
+  section <- function(x) c("", paste0("== ", x, " =="))
+  runtime <- if (length(job$runtime) == 1) job$runtime else ""
+  python <- if (.Platform$OS.type == "windows") file.path(runtime, "python.exe") else file.path(runtime, "bin", "python")
+  py_versions <- tryCatch({
+    code <- tempfile(fileext = ".py")
+    writeLines(c("from importlib import metadata as m",
+                 "import sys",
+                 "print('python', sys.version.split()[0])",
+                 "for p in ('birdnet', 'tensorflow', 'ai-edge-litert', 'numpy'):",
+                 "    try: print(p, m.version(p))",
+                 "    except Exception: print(p, 'not installed')"), code)
+    suppressWarnings(system2(python, c("-I", shQuote(code)), stdout = TRUE, stderr = TRUE))
+  }, error = function(e) paste("could not run Python:", conditionMessage(e)))
+  ffmpeg <- tryCatch(suppressWarnings(system2(Sys.which("ffmpeg"), "-version", stdout = TRUE, stderr = TRUE))[1],
+                     error = function(e) "ffmpeg not found")
+  ram <- tryCatch(round(pamflow:::pam_system_ram_gb(), 1), error = function(e) NA)
+  out <- c("pamflow Desktop diagnostics",
+           say("made ", format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")),
+           "Look through this file before sending it: it can contain folder paths (and so your user name).",
+           section("Versions"),
+           say("app: ", job$app_version %||% "unknown"),
+           say("pamflow: ", as.character(utils::packageVersion("pamflow"))),
+           say("R: ", R.version.string),
+           say("platform: ", R.version$platform),
+           py_versions,
+           say("ffmpeg: ", ffmpeg),
+           section("Computer"),
+           say("system: ", paste(Sys.info()[c("sysname", "release", "machine")], collapse = " ")),
+           say("cores: ", parallel::detectCores(logical = FALSE), " physical, ", parallel::detectCores(logical = TRUE), " logical"),
+           say("memory: ", if (is.na(ram)) "unknown" else paste(ram, "GB")),
+           say("time zone: ", Sys.timezone()),
+           section("Analysis engine"),
+           say("runtime: ", runtime),
+           say("downloaded models: ", job$models_dir %||% "unknown"))
+  if (is.null(found)) {
+    out <- c(out, section("Project"), "No project is open (or no settings file was found).")
+  } else {
+    old <- setwd(found$root); on.exit(setwd(old), add = TRUE)
+    cfg <- tryCatch(pam_config_read(found$config), error = function(e) e)
+    out <- c(out, section("Project"), say("settings file: ", found$config), say("project folder: ", found$root))
+    if (inherits(cfg, "error")) {
+      out <- c(out, say("pamflow could not read the settings file: ", conditionMessage(cfg)))
+    } else {
+      p <- unlist(cfg$paths[setdiff(names(cfg$paths), "project_root")])
+      out <- c(out, section("Folders in the settings (exists?)"),
+               sprintf("%-20s %s  %s", names(p), ifelse(file.exists(p), "yes", "NO "), p))
+    }
+    out <- c(out, section("Settings file"), readLines(found$config, warn = FALSE, encoding = "UTF-8"))
+    logs <- if (!inherits(cfg, "error") && dir.exists(cfg$paths$logs)) list.files(cfg$paths$logs, pattern = "\\.log$", full.names = TRUE) else character()
+    if (length(logs)) {
+      logs <- utils::head(logs[order(file.mtime(logs), decreasing = TRUE)], 12)
+      for (lg in logs) {
+        txt <- tryCatch(readLines(lg, warn = FALSE, encoding = "UTF-8"), error = function(e) character())
+        out <- c(out, section(sprintf("Log %s (last %d of %d lines, changed %s)", basename(lg),
+                                      min(150, length(txt)), length(txt), format(file.mtime(lg), "%Y-%m-%d %H:%M"))),
+                 utils::tail(txt, 150))
+      }
+    } else out <- c(out, section("Logs"), "No log files yet.")
+  }
+  dir.create(dirname(target), recursive = TRUE, showWarnings = FALSE)
+  con <- file(target, open = "w", encoding = "UTF-8")
+  writeLines(enc2utf8(out), con)
+  close(con)                      # before reading the size: it is only complete once closed
+  list(path = target, bytes = file.size(target))
+}
+
+if (identical(job$job, "diagnostics")) {
+  made <- tryCatch(pd_diagnostics(job, pd_find_config(job$project, job$config)),
+                   error = function(e) list(error = conditionMessage(e)))
+  if (!is.null(made$error)) fail(made$error)
+  pd_emit("diagnostics_saved", path = made$path, bytes = made$bytes)
+  pd_emit("finished", status = "ok")
+  quit(status = 0L)
+}
+
+# ---- an example project: pamflow's own, in the user's Documents folder ------
+if (identical(job$job, "example_project")) {
+  base <- if (length(job$documents_dir) == 1 && nzchar(job$documents_dir)) job$documents_dir else path.expand("~")
+  dir <- file.path(base, "pamflow example")
+  n <- 1
+  while (dir.exists(dir) && length(list.files(dir, all.files = TRUE, no.. = TRUE))) {
+    n <- n + 1
+    dir <- file.path(base, paste("pamflow example", n))
+  }
+  ex <- tryCatch(pamflow::pam_example_project(dir), error = function(e) e)
+  if (inherits(ex, "error")) fail(paste("Could not make the example project:", conditionMessage(ex)))
+  pd_emit("example_created", root = ex$root, config = ex$config)
+  job$project <- ex$config
+  job$config <- NULL
+  job$job <- "inspect"
 }
 
 # ---- a new project: write the default settings file first -----------------

@@ -13,6 +13,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -22,11 +23,76 @@ const EVENT_PREFIX: &str = "@@PAM ";
 #[derive(Default)]
 pub struct Jobs {
     running: Mutex<HashMap<String, RunningJob>>,
+    /// Held while a long job runs, so the computer does not go to sleep (and stop it).
+    awake: Mutex<Option<keepawake::KeepAwake>>,
 }
 
 struct RunningJob {
     pid: u32,
     stop_requested: bool,
+    /// A job that can take minutes to days (see `is_long`).
+    long: bool,
+}
+
+/// Jobs worth keeping the computer awake for and asking before closing the app.
+/// Quick jobs (reading a project, saving settings) are not.
+fn is_long(job: &str) -> bool {
+    matches!(
+        job,
+        "detect" | "filter" | "standardize" | "std_plan" | "scan" | "process" | "validation_draw" | "report" | "model_download"
+    )
+}
+
+impl Jobs {
+    /// How many long jobs are running now.
+    pub fn long_running(&self) -> usize {
+        self.running.lock().unwrap().values().filter(|j| j.long).count()
+    }
+
+    /// Keep the computer awake exactly while a long job runs.
+    fn update_awake(&self) {
+        let needed = self.long_running() > 0;
+        let mut guard = self.awake.lock().unwrap();
+        if needed && guard.is_none() {
+            // not being able to do this must never stop the work itself
+            *guard = keepawake::Builder::default()
+                .idle(true)
+                .sleep(true)
+                .reason("pamflow is running an analysis")
+                .app_name("pamflow")
+                .app_reverse_domain("org.pamflow.desktop")
+                .create()
+                .ok();
+        } else if !needed {
+            *guard = None; // dropping it lets the computer sleep again
+        }
+    }
+}
+
+/// Is the "really close?" question already on screen?
+static CLOSE_PROMPT_OPEN: AtomicBool = AtomicBool::new(false);
+
+/// The window's close button was pressed. With a long job running, ask first
+/// (the screen shows the question); a second press while it is open closes anyway.
+pub fn on_close_requested(window: &tauri::Window, api: &tauri::CloseRequestApi) {
+    let jobs = window.state::<Jobs>();
+    if jobs.long_running() > 0 && !CLOSE_PROMPT_OPEN.swap(true, Ordering::SeqCst) {
+        api.prevent_close();
+        let _ = window.emit("close-requested", ());
+    }
+}
+
+/// The question was answered (yes or no).
+#[tauri::command]
+pub fn close_prompt_done() {
+    CLOSE_PROMPT_OPEN.store(false, Ordering::SeqCst);
+}
+
+/// Stop everything and close the app (the answer "yes" to the question above).
+#[tauri::command]
+pub fn quit_app(app: AppHandle, jobs: State<'_, Jobs>) {
+    stop_all(&jobs);
+    app.exit(0);
 }
 
 #[derive(Clone, Serialize)]
@@ -72,11 +138,16 @@ pub fn start_job(app: AppHandle, jobs: State<'_, Jobs>, spec: Value) -> Result<S
     let id = new_job_id();
 
     let mut spec = spec;
+    let long = spec.get("job").and_then(Value::as_str).map(is_long).unwrap_or(false);
     if let Some(obj) = spec.as_object_mut() {
         obj.insert("runtime".into(), json!(rt.prefix));
         if let Some(models) = crate::setup::models_root(&app) {
             obj.insert("models_dir".into(), json!(models));
         }
+        if let Ok(docs) = app.path().document_dir() {
+            obj.insert("documents_dir".into(), json!(crate::runtime::plain(docs)));
+        }
+        obj.insert("app_version".into(), json!(app.package_info().version.to_string()));
     } else {
         return Err("job description must be an object".into());
     }
@@ -99,7 +170,8 @@ pub fn start_job(app: AppHandle, jobs: State<'_, Jobs>, spec: Value) -> Result<S
     jobs.running
         .lock()
         .unwrap()
-        .insert(id.clone(), RunningJob { pid, stop_requested: false });
+        .insert(id.clone(), RunningJob { pid, stop_requested: false, long });
+    jobs.update_awake();
 
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
@@ -125,6 +197,7 @@ pub fn start_job(app: AppHandle, jobs: State<'_, Jobs>, spec: Value) -> Result<S
                 .remove(&id)
                 .map(|j| j.stop_requested)
                 .unwrap_or(false);
+            app.state::<Jobs>().update_awake();
             let code = status.ok().and_then(|s| s.code());
             emit(&app, &id, json!({ "type": "exit", "code": code, "stopped": stopped }));
             let _ = std::fs::remove_file(&spec_path);
@@ -156,6 +229,7 @@ pub fn stop_all(jobs: &Jobs) {
     for pid in pids {
         kill_tree(pid);
     }
+    *jobs.awake.lock().unwrap() = None;
 }
 
 fn forward_line(app: &AppHandle, id: &str, line: &str, stream: &str) {
@@ -218,4 +292,32 @@ fn new_job_id() -> String {
     static COUNTER: AtomicU32 = AtomicU32::new(0);
     let ms = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
     format!("job-{ms}-{}", COUNTER.fetch_add(1, Ordering::Relaxed))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_long_jobs_count() {
+        for j in ["detect", "filter", "standardize", "scan", "report", "model_download"] {
+            assert!(is_long(j), "{j} should count as long");
+        }
+        for j in ["inspect", "config_save", "model_info", "project_create", "diagnostics"] {
+            assert!(!is_long(j), "{j} should not count as long");
+        }
+    }
+
+    #[test]
+    fn long_running_counts_and_keep_awake_never_panics() {
+        let jobs = Jobs::default();
+        assert_eq!(jobs.long_running(), 0);
+        jobs.running.lock().unwrap().insert("a".into(), RunningJob { pid: 1, stop_requested: false, long: true });
+        jobs.running.lock().unwrap().insert("b".into(), RunningJob { pid: 2, stop_requested: false, long: false });
+        assert_eq!(jobs.long_running(), 1);
+        jobs.update_awake(); // may fail to get a lock on a machine without a desktop session; that is fine
+        jobs.running.lock().unwrap().remove("a");
+        jobs.update_awake();
+        assert!(jobs.awake.lock().unwrap().is_none(), "released when no long job runs");
+    }
 }

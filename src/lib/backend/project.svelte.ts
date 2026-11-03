@@ -10,6 +10,7 @@ import { report } from './report.svelte';
 import { scan } from './scan.svelte';
 import { filterInfo } from './filter.svelte';
 import { standardize } from './standardize.svelte';
+import { notePamflowVersion } from './appinfo.svelte';
 
 const STORAGE_KEY = 'pamflow-project-folder';
 const CONFIG_KEY = 'pamflow-project-config';
@@ -92,7 +93,8 @@ export const project = $state<{
   error: string;
   noConfig: NoConfig | null;
   created: string;         // settings file just made from the defaults (shown once)
-}>({ folder: saved(STORAGE_KEY), config: saved(CONFIG_KEY), facts: null, checking: false, error: '', noConfig: null, created: '' });
+  example: boolean;        // the open project is pamflow's example project, just made
+}>({ folder: saved(STORAGE_KEY), config: saved(CONFIG_KEY), facts: null, checking: false, error: '', noConfig: null, created: '', example: false });
 jobContext.config = project.config;
 
 /** Forget everything shown for the previous project. */
@@ -101,6 +103,7 @@ function resetProjectState() {
   project.error = '';
   project.noConfig = null;
   project.created = '';
+  project.example = false;
   processJob.summary = null; // results belong to the previous project
   validation.status = 'idle';
   validation.info = null;
@@ -125,6 +128,7 @@ const isYaml = (p: string) => /\.ya?ml$/i.test(p);
 
 /** Use what the engine reported: the project, or that it has no settings file. */
 export function applyInspect(events: JobEvent[], fallback = 'The project could not be read.') {
+  notePamflowVersion(events);
   const facts = events.find((e) => e.type === 'project');
   const none = events.find((e) => e.type === 'no_config');
   if (facts) {
@@ -178,6 +182,25 @@ export async function createProject(folder: string, target?: string): Promise<vo
     const made = events.find((e) => e.type === 'project_created');
     applyInspect(events, 'The new project could not be created.');
     if (made && project.facts) project.created = String(made.config ?? '');
+  } catch (e) {
+    project.error = String(e);
+  } finally {
+    project.checking = false;
+  }
+}
+
+/** Make pamflow's small example project in the Documents folder and open it. */
+export async function createExample(): Promise<void> {
+  resetProjectState();
+  setConfig('');
+  project.folder = '';
+  project.checking = true;
+  try {
+    const events = await runJob({ job: 'example_project', project: '' });
+    const made = events.find((e) => e.type === 'example_created');
+    if (made) project.folder = String(made.root);
+    applyInspect(events, 'The example project could not be made.');
+    if (made && project.facts) project.example = true;
   } catch (e) {
     project.error = String(e);
   } finally {

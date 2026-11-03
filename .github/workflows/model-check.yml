@@ -1,4 +1,6 @@
-# Does BirdNET's own (global) model work in pamflow Desktop?
+# Checks of the app's engine on every operating system:
+#  1. BirdNET's own (global) model (download, load, detect)
+#  2. the example project, and the diagnostics file
 #
 # On every operating system: downloads the model with the app's own script
 # (bridge/download_model.py, from zenodo.org), loads it the way pamflow loads
@@ -8,7 +10,7 @@
 #
 # Run it from the Actions tab ("Run workflow").
 
-name: default model check
+name: app engine checks
 
 on:
   workflow_dispatch:
@@ -16,6 +18,8 @@ on:
     paths:
       - "bridge/download_model.py"
       - "runtime/scripts/check_default_model.R"
+      - "runtime/scripts/check_example_project.R"
+      - "bridge/run_job.R"
       - ".github/workflows/model-check.yml"
 
 jobs:
@@ -75,3 +79,6 @@ jobs:
 
       - name: New project, settings, Detect (through the app's engine)
         run: pixi run Rscript scripts/check_default_model.R "$MODELS" "$GITHUB_WORKSPACE/test.wav"
+
+      - name: Example project and diagnostics (through the app's engine)
+        run: pixi run Rscript scripts/check_example_project.R

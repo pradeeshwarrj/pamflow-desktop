@@ -9,7 +9,7 @@
   import Button from '$lib/components/Button.svelte';
   import Badge from '$lib/components/Badge.svelte';
   import { pickFolder, pickFile, pickSavePath, showFolder } from '$lib/backend/tauri';
-  import { project, openProject, openConfigFile, createProject, refreshProject } from '$lib/backend/project.svelte';
+  import { project, openProject, openConfigFile, createProject, createExample, refreshProject } from '$lib/backend/project.svelte';
   import { t } from '$lib/i18n';
   import { onMount } from 'svelte';
 
@@ -67,6 +67,7 @@
   <div class="row links">
     <Button variant="ghost" size="sm" onclick={newProject} disabled={project.checking}>{t('project.newProject')}</Button>
     <Button variant="ghost" size="sm" onclick={openOther} disabled={project.checking}>{t('project.openOther')}</Button>
+    <Button variant="ghost" size="sm" onclick={createExample} disabled={project.checking}>{t('project.tryExample')}</Button>
   </div>
 
   {#if project.checking}
@@ -108,7 +109,8 @@
       <span class="path mono" title={f.config}>{f.config}</span>
       <Button variant="ghost" size="sm" onclick={() => showFolder(f.config)}>{t('project.showFile')}</Button>
     </div>
-    {#if project.created}<span class="muted">{t('project.createdHint')}</span>{/if}
+    {#if project.example}<span class="muted">{t('project.exampleHint')}</span>
+    {:else if project.created}<span class="muted">{t('project.createdHint')}</span>{/if}
   {/if}
 </Card>
 

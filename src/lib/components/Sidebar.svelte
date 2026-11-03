@@ -9,6 +9,7 @@
   import { detectJob, isActive } from '$lib/backend/detect.svelte';
   import { filterJob, filterInfo } from '$lib/backend/filter.svelte';
   import { scan } from '$lib/backend/scan.svelte';
+  import { appInfo, saveDiagnostics } from '$lib/backend/appinfo.svelte';
   import { stdJob, standardize } from '$lib/backend/standardize.svelte';
   import { processJob } from '$lib/backend/process.svelte';
   import { validation } from '$lib/backend/validation.svelte';
@@ -86,7 +87,21 @@
 
   <div class="foot">
     <ThemeSwitch />
-    <span class="version">{t('app.version')}</span>
+    {#if !inApp}
+      <span class="version">{t('app.version')}</span>
+    {:else}
+      {#if appInfo.runtimeFound === false}
+        <span class="version warn" title={appInfo.runtimeMessage}>{t('app.runtimeMissing')}</span>
+      {/if}
+      <span class="version">
+        {t('app.versionLine', { app: appInfo.app || '–' })}{appInfo.pamflow ? ` · pamflow ${appInfo.pamflow}` : ''}
+      </span>
+      <button class="link" onclick={() => saveDiagnostics(project.folder, { title: t('app.diagnosticsTitle'), kind: t('app.textFiles') })}
+        disabled={appInfo.diagnosticsBusy}>
+        {appInfo.diagnosticsBusy ? t('app.diagnosticsBusy') : t('app.diagnostics')}
+      </button>
+      {#if appInfo.diagnosticsError}<span class="version warn">{appInfo.diagnosticsError}</span>{/if}
+    {/if}
   </div>
 </nav>
 
@@ -136,4 +151,9 @@
 
   .foot { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--space-2); }
   .version { font-size: var(--text-xs); color: var(--muted); }
+  .version.warn { color: var(--rose-ink); font-weight: var(--weight-semibold); overflow-wrap: anywhere; }
+  .link { align-self: flex-start; padding: 0; border: 0; background: none; font: inherit; font-size: var(--text-xs);
+    color: var(--muted); text-decoration: underline; cursor: pointer; }
+  .link:hover:not(:disabled) { color: var(--text); }
+  .link:disabled { cursor: default; opacity: 0.6; }
 </style>
