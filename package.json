@@ -1,7 +1,7 @@
 {
   "name": "pamflow-desktop",
   "version": "0.1.0",
-  "description": "Desktop app for the pamflow passive acoustic monitoring workflow",
+  "description": "Desktop app for the pamflow R package for passive acoustic monitoring workflow",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
