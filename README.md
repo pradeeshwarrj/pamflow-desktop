@@ -1,5 +1,7 @@
 # pamflow Desktop
 
+**Website:** <https://pradeeshwarrj.github.io/pamflow-desktop/> (the files are in `site/`)
+
 A desktop app (Windows, macOS, Linux) for the
 [pamflow](https://github.com/pradeeshwarrj/pamflow) passive acoustic
 monitoring workflow: from raw recordings to detections, validation, occupancy

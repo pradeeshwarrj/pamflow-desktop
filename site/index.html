@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pamflow Desktop - passive acoustic monitoring, from recordings to occupancy</title>
+  <meta name="description" content="A free desktop app for Windows, macOS and Linux that takes passive acoustic monitoring recordings through BirdNET detection, validation, occupancy histories and reports. One installer, nothing else to install." />
+  <meta property="og:title" content="pamflow Desktop" />
+  <meta property="og:description" content="Passive acoustic monitoring, from recordings to occupancy, in one app." />
+  <meta property="og:image" content="https://pradeeshwarrj.github.io/pamflow-desktop/img/validate-light.webp" />
+  <link rel="icon" href="favicon.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="logo.png" alt="" />pamflow Desktop</a>
+    <nav>
+      <a href="#steps">What it does</a>
+      <a href="#screens">Screens</a>
+      <a href="#download" class="keep">Download</a>
+      <a href="#help">Help</a>
+      <a href="https://github.com/pradeeshwarrj/pamflow-desktop" class="keep">GitHub</a>
+    </nav>
+    <button id="theme" class="icon-btn" aria-label="Switch to dark mode">☾</button>
+  </div>
+</header>
+
+<main id="top">
+  <!-- ===== Hero ===== -->
+  <div class="hero">
+    <div class="wrap">
+      <span class="pill">Free and open source</span>
+      <h1>Passive acoustic monitoring, from recordings to occupancy</h1>
+      <p class="lead">
+        pamflow Desktop takes your recordings through BirdNET detection, validation, detection
+        histories and reports, with clicks instead of code. One installer for Windows, macOS and Linux;
+        nothing else to install.
+      </p>
+      <div class="cta">
+        <a class="btn" id="hero-download" href="#download">Download</a>
+        <a class="btn ghost" href="https://github.com/pradeeshwarrj/pamflow-desktop">View on GitHub</a>
+      </div>
+      <p class="fine"><span data-version>Version 0.1.0, in testing</span> · everything stays on your computer</p>
+
+      <div class="shot">
+        <img class="light-only" src="img/validate-light.webp" width="1600" height="1000" alt="The Validate step: a spectrogram of a bird call with Correct, Wrong species and Not sure buttons." />
+        <img class="dark-only" src="img/validate-dark.webp" width="1600" height="1000" alt="The Validate step in dark mode." />
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Steps ===== -->
+  <section id="steps">
+    <div class="wrap">
+      <h2>Nine steps, one project folder</h2>
+      <p class="sub">
+        Each step reads the results of the one before and saves its own, so you can stop at any point
+        and carry on later. The analysis is done by the
+        <a href="https://pradeeshwarrj.github.io/pamflow/">pamflow R package</a>, which comes inside the installer.
+      </p>
+      <div class="grid g3">
+        <div class="card step sky"><div class="n">Step 1</div><h3>Project</h3><p>Open a project folder, start a new one with ready-made settings, or try the example project.</p></div>
+        <div class="card step butter"><div class="n">Step 2</div><h3>Standardize</h3><p>Optional. Turn raw recordings into one tidy, consistently named set of files. Your originals are never changed.</p></div>
+        <div class="card step mint"><div class="n">Step 3</div><h3>Scan</h3><p>Read every recording, check its quality (unreadable, truncated, duplicates, gaps) and match it to your deployment sheet.</p></div>
+        <div class="card step aqua"><div class="n">Step 4</div><h3>Filter</h3><p>High-pass filter against wind and traffic noise, with progress, stop and continue.</p></div>
+        <div class="card step lavender"><div class="n">Step 5</div><h3>Detect</h3><p>Run BirdNET, your own classifier or its global model, on all recordings. A stopped run continues where it stopped.</p></div>
+        <div class="card step peach"><div class="n">Step 6</div><h3>Process</h3><p>Clean the detections: merge overlaps and apply confidence, species and date rules.</p></div>
+        <div class="card step rose"><div class="n">Step 7</div><h3>Validate</h3><p>Review a sample of detections by ear and eye, then see precision by species and confidence.</p></div>
+        <div class="card step butter"><div class="n">Step 8</div><h3>Occupancy</h3><p>Build one detection history per species, ready for unmarked, spOccupancy or ubms.</p></div>
+        <div class="card step sage"><div class="n">Step 9</div><h3>Report</h3><p>Write an HTML report and an Excel workbook you can share.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Screens ===== -->
+  <section id="screens">
+    <div class="wrap">
+      <h2>A quick look</h2>
+      <p class="sub">Light and dark, with a soft colour for each step. These screens show demo numbers.</p>
+      <div class="tabs" role="tablist">
+        <button class="tab mint" role="tab" aria-selected="true" data-panel="p-scan">Scan</button>
+        <button class="tab rose" role="tab" aria-selected="false" data-panel="p-validate">Validate</button>
+        <button class="tab butter" role="tab" aria-selected="false" data-panel="p-occupancy">Occupancy</button>
+        <button class="tab sage" role="tab" aria-selected="false" data-panel="p-report">Report</button>
+      </div>
+
+      <div class="panel" id="p-scan">
+        <div class="shot" style="margin-top:0">
+          <img class="light-only" loading="lazy" src="img/scan-light.webp" width="1600" height="1000" alt="The Scan step: totals for recordings, grids and hours, and a list of quality checks." />
+          <img class="dark-only" loading="lazy" src="img/scan-dark.webp" width="1600" height="1000" alt="The Scan step in dark mode." />
+        </div>
+        <p class="caption">Every recording is checked before anything is analysed. Problem files are left out of the next steps and listed for you.</p>
+      </div>
+      <div class="panel" id="p-validate" hidden>
+        <div class="shot" style="margin-top:0">
+          <img class="light-only" loading="lazy" src="img/validate-light.webp" width="1600" height="1000" alt="The Validate step with a spectrogram and answer buttons." />
+          <img class="dark-only" loading="lazy" src="img/validate-dark.webp" width="1600" height="1000" alt="The Validate step in dark mode." />
+        </div>
+        <p class="caption">Listen, look at the spectrogram and answer with one key. Precision is worked out as you go and saved automatically.</p>
+      </div>
+      <div class="panel" id="p-occupancy" hidden>
+        <div class="shot" style="margin-top:0">
+          <img class="light-only" loading="lazy" src="img/occupancy-light.webp" width="1600" height="1000" alt="The Occupancy step: species table and a detection history grid." />
+          <img class="dark-only" loading="lazy" src="img/occupancy-dark.webp" width="1600" height="1000" alt="The Occupancy step in dark mode." />
+        </div>
+        <p class="caption">One detection history per species: sites by occasions, detected, not detected or not surveyed.</p>
+      </div>
+      <div class="panel" id="p-report" hidden>
+        <div class="shot" style="margin-top:0">
+          <img class="light-only" loading="lazy" src="img/report-light.webp" width="1600" height="1000" alt="The Report step." />
+          <img class="dark-only" loading="lazy" src="img/report-dark.webp" width="1600" height="1000" alt="The Report step in dark mode." />
+        </div>
+        <p class="caption">An HTML report and an Excel workbook, written into your project folder.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Why ===== -->
+  <section>
+    <div class="wrap">
+      <h2>Made to just work</h2>
+      <div class="grid g3" style="margin-top:24px">
+        <div class="card"><h3>One installer</h3><p>R, Python, BirdNET, ffmpeg and pandoc are inside. Nothing else to install or configure.</p></div>
+        <div class="card"><h3>Settings that are ready</h3><p>A new project starts with default settings. Change them in the app; they are saved to a settings file you can keep anywhere.</p></div>
+        <div class="card"><h3>Built for long runs</h3><p>Progress is saved after every batch. The computer stays awake while a long job runs, and closing the window asks first.</p></div>
+        <div class="card"><h3>Your data stays yours</h3><p>Nothing is uploaded. The only download is BirdNET's own model, and only if you ask for it.</p></div>
+        <div class="card"><h3>Your own classifier</h3><p>Use BirdNET's global model for about 6,500 species, or a classifier you trained yourself.</p></div>
+        <div class="card"><h3>Open source</h3><p>The app and the pamflow package are on GitHub. Read the code, report problems, suggest changes.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Download ===== -->
+  <section id="download">
+    <div class="wrap">
+      <h2>Download</h2>
+      <p class="sub"><span data-version>Latest version</span> · You need about 6 GB of free disk space. The first start unpacks the analysis engine (1 to 5 minutes, once).</p>
+      <div class="grid g3">
+        <div class="card dl" data-system="windows">
+          <h3>Windows</h3>
+          <p>Installs for your user. No administrator needed.</p>
+          <div class="row"><a class="btn" data-file="windows" href="https://github.com/pradeeshwarrj/pamflow-desktop/releases/latest">Installer (.exe)<span class="size"> · about 1 GB</span></a></div>
+        </div>
+        <div class="card dl" data-system="mac">
+          <h3>macOS</h3>
+          <p>Apple Silicon is any Mac from late 2020 onward; older Macs are Intel.</p>
+          <div class="row">
+            <a class="btn" data-file="mac-arm" href="https://github.com/pradeeshwarrj/pamflow-desktop/releases/latest">Apple Silicon<span class="size"> · about 0.8 GB</span></a>
+            <a class="btn ghost" data-file="mac-intel" href="https://github.com/pradeeshwarrj/pamflow-desktop/releases/latest">Intel<span class="size"> · about 0.9 GB</span></a>
+          </div>
+        </div>
+        <div class="card dl" data-system="linux">
+          <h3>Linux</h3>
+          <p>An AppImage runs on any distribution; the .deb is for Ubuntu and Debian.</p>
+          <div class="row">
+            <a class="btn" data-file="appimage" href="https://github.com/pradeeshwarrj/pamflow-desktop/releases/latest">AppImage<span class="size"> · about 1.3 GB</span></a>
+            <a class="btn ghost" data-file="deb" href="https://github.com/pradeeshwarrj/pamflow-desktop/releases/latest">.deb</a>
+          </div>
+        </div>
+      </div>
+      <div class="note">
+        <strong>The installers are not signed yet</strong>, so Windows and macOS will warn you the first time.
+        It is safe to continue; the steps are below.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Help ===== -->
+  <section id="help">
+    <div class="wrap">
+      <h2>Installing and first start</h2>
+      <details>
+        <summary>Windows says "Windows protected your PC"</summary>
+        <p>Choose <strong>More info</strong>, then <strong>Run anyway</strong>.</p>
+      </details>
+      <details>
+        <summary>macOS says pamflow "is damaged and can't be opened"</summary>
+        <p>The app is fine; the installer just isn't signed yet. Drag pamflow into Applications, run this once in Terminal, then open it normally:</p>
+        <pre>xattr -cr /Applications/pamflow.app</pre>
+      </details>
+      <details>
+        <summary>Linux AppImage does not start</summary>
+        <p>Make it executable and run it:</p>
+        <pre>chmod +x pamflow_*.AppImage
+./pamflow_*.AppImage</pre>
+      </details>
+      <details>
+        <summary>The first start shows "Setting up pamflow"</summary>
+        <p>The app unpacks R, Python, BirdNET and ffmpeg into your user folder. This takes 1 to 5 minutes, happens once (and again only after an update that changes the engine), and needs no internet.</p>
+      </details>
+      <details>
+        <summary>Something went wrong</summary>
+        <p>Use <strong>Save diagnostics</strong> at the bottom of the sidebar. It writes one text file with versions, folders and the latest log lines. Attach it to an <a href="https://github.com/pradeeshwarrj/pamflow-desktop/issues">issue on GitHub</a>.</p>
+      </details>
+      <details>
+        <summary>BirdNET models and licence</summary>
+        <p>On the Project step you can download BirdNET's global model once (about 73 MB, from Zenodo) or point to your own classifier. BirdNET's models are free for research and other non-commercial use (CC BY-NC-SA 4.0). Please cite Kahl et al. (2021), <em>BirdNET: A deep learning solution for avian diversity monitoring</em>, Ecological Informatics 61, 101236.</p>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <p><strong>pamflow Desktop</strong> is the desktop app for the <a href="https://pradeeshwarrj.github.io/pamflow/">pamflow</a> R package.</p>
+      <p>Built with Tauri, Svelte and R. BirdNET by the K. Lisa Yang Center for Conservation Bioacoustics (Cornell) and Chemnitz University of Technology.</p>
+    </div>
+    <div>
+      <p><a href="https://github.com/pradeeshwarrj/pamflow-desktop">Source on GitHub</a></p>
+      <p><a href="https://github.com/pradeeshwarrj/pamflow-desktop/releases">All releases</a></p>
+      <p><a href="https://github.com/pradeeshwarrj/pamflow-desktop/issues">Report a problem</a></p>
+    </div>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
