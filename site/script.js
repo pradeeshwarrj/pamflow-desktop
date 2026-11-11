@@ -67,9 +67,13 @@ const heroButton = document.getElementById('hero-download');
 const heroNames = { windows: 'Windows', mac: 'macOS', linux: 'Linux' };
 if (system) heroButton.textContent = 'Download for ' + heroNames[system];
 
-fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } })
+// Newest published release. The list is used instead of /releases/latest because that one
+// skips pre-releases, and the first releases are marked as pre-release.
+fetch(`https://api.github.com/repos/${REPO}/releases?per_page=5`, { headers: { Accept: 'application/vnd.github+json' } })
   .then((response) => (response.ok ? response.json() : Promise.reject(new Error(response.status))))
-  .then((release) => {
+  .then((releases) => {
+    const release = releases.find((r) => !r.draft);
+    if (!release) return;
     const version = (release.tag_name || '').replace(/^v/, '');
     document.querySelectorAll('[data-version]').forEach((el) => (el.textContent = version ? 'Version ' + version : ''));
     for (const link of document.querySelectorAll('[data-file]')) {
