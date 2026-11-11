@@ -226,9 +226,28 @@ The engine inside the installer is described in
 
 ## Licenses and credits
 
-- pamflow Desktop: MIT (see `package.json`).
+- pamflow Desktop: MIT (see `LICENSE`).
 - pamflow, the R package: MIT.
 - BirdNET models: CC BY-NC-SA 4.0 (non-commercial); downloaded by the user, not
   shipped in the installer.
 - R, Python, TensorFlow, ffmpeg, pandoc and the other packages in the engine keep
-  their own licenses.
+  their own licenses; see `THIRD-PARTY-NOTICES.md`.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by
+[SignPath Foundation](https://signpath.org). Windows installers are signed this
+way from the first release after the project is approved; earlier releases are
+unsigned.
+
+- **Where installers come from:** only from the automated build in this
+  repository (`.github/workflows/release.yml`), built from the source here.
+  Nothing is signed from a personal computer.
+- **Team roles:** Pradeeshwar Rajagopal James
+  ([pradeeshwarrj](https://github.com/pradeeshwarrj)) is the author, reviewer and
+  approver. Every signing request is approved by hand.
+- **Privacy:** the app does not send your recordings, results or any usage data
+  anywhere. The only network use is the optional download of BirdNET's model from
+  zenodo.org, and nothing about you is sent with it.
+- **Uninstall:** use Windows Settings → Apps; see the release notes for what an
+  uninstall removes.
