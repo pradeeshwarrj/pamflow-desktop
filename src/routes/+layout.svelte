@@ -22,10 +22,15 @@
     document.documentElement.dataset.theme = theme.mode;
   });
 
+  // Ask about the engine once setup is settled (and again when first-launch setup finishes),
+  // not before: while it is still being unpacked it would be reported as missing.
+  $effect(() => {
+    if (setup.checked && !setup.needed) loadAppInfo();
+  });
+
   // An installed pamflow unpacks its analysis engine once, on first launch.
   onMount(() => {
     checkSetup().catch(() => (setup.checked = true));
-    loadAppInfo();
     watchClose({ message: t('app.closeWhileRunning'), title: t('app.name'), stop: t('app.stopAndClose'), keep: t('app.keepRunning') });
   });
 </script>
