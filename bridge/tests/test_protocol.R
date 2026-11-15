@@ -43,6 +43,13 @@ ok(basename(f3$config) == "my_settings.yml" && f3$root == normalizePath(elsewher
 proj <- tempfile(); dir.create(proj)
 writeLines(c("paths:", paste0("  project_root: \"", normalizePath(proj, winslash = "/"), "\"")), file.path(elsewhere, "pinned.yml"))
 f4 <- pd_find_config("", config = file.path(elsewhere, "pinned.yml"))
+if (!isTRUE(f4$root == normalizePath(proj, winslash = "/"))) {
+  cat("got root:", format(f4$root), "
+expected:", normalizePath(proj, winslash = "/"),
+      "
+yaml says:", format(tryCatch(yaml::read_yaml(file.path(elsewhere, "pinned.yml"))$paths$project_root, error = function(e) conditionMessage(e))), "
+")
+}
 ok(f4$root == normalizePath(proj, winslash = "/"), "absolute project_root in the file decides the project folder")
 ok(is.null(pd_find_config(d, config = file.path(elsewhere, "gone.yml"))), "explicit config that is missing -> NULL")
 ok(is.null(pd_find_config("")), "empty project -> NULL")
