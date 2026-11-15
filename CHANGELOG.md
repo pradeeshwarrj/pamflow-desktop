@@ -3,6 +3,24 @@
 All notable changes to pamflow Desktop. Versions follow the numbers in
 `package.json`.
 
+## 0.1.1 (in testing)
+
+Fixes from a code audit.
+
+### Fixes
+- Validate: the 1, 2 and 3 keys no longer record answers while the draw card is open.
+- Validate: an answer can no longer wipe the results file if saving is interrupted.
+- Validate: a round with a single clip is shown correctly.
+- Job results: the last messages of a job always arrive before it is reported as ended.
+- Report: a file counts as written only if pamflow wrote it just now.
+- Detect and Scan wait for Filter and Standardize (and each other).
+- The sidebar no longer shows "Analysis engine not found" after first-launch setup.
+
+### Internals
+- Faster progress updates and project reads on large projects.
+- Tests for the interface, Rust and R bridge now run on every push.
+- The release build checks that its unpacker opens the packed engine.
+
 ## 0.1.0 (in testing)
 
 First version.

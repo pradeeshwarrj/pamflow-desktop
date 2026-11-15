@@ -11,7 +11,7 @@ The interface is built with Tauri (Rust) and SvelteKit. The analysis is done by
 the pamflow R package, which comes inside the installer together with R, Python,
 BirdNET, ffmpeg and pandoc, so users install nothing else.
 
-**Status:** version 0.1.0, in testing. Windows and macOS installers have been
+**Status:** version 0.1.1, in testing. Windows and macOS installers have been
 tried by hand; all four systems are built and checked on GitHub.
 
 ## What it does
