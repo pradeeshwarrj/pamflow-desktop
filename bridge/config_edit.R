@@ -117,13 +117,6 @@ pd_yaml_apply <- function(lines, changes) {
 
 # ---- new settings files --------------------------------------------------
 
-#' The project folder a settings file at `target` would belong to if it did not
-#' pin `project_root` (same rule as pd_config_root in protocol.R).
-pd_derive_root <- function(target) {
-  dir <- dirname(normalizePath(path.expand(target), winslash = "/", mustWork = FALSE))
-  if (tolower(basename(dir)) == "config") dirname(dir) else dir
-}
-
 #' Lines of a new settings file: pamflow's own default settings with a short
 #' header on top. If the file will not sit at <root>/config/config.yml (or in
 #' <root> itself), `project_root` is written as the absolute project folder so

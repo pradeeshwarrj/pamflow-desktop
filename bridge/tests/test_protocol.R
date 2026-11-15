@@ -57,3 +57,13 @@ ok(pd_checkpoint_count(ck) == 2, "checkpoint count")
 out <- capture.output(pd_emit("total", n = 5L))
 ok(out == '@@PAM {"type":"total","n":5}', "event line format")
 cat("all bridge tests passed\n")
+
+# only the rows added since `seen` are returned
+f <- tempfile(fileext = ".csv")
+writeLines(c("rel,ok,message", "a.wav,TRUE,", "b.wav,FALSE,\"bad file\""), f)
+n <- pd_new_results(f, 0L)
+ok(nrow(n$rows) == 2 && n$seen == 2, "new results: first read")
+cat("c.wav,TRUE,\n", file = f, append = TRUE)
+n <- pd_new_results(f, n$seen)
+ok(nrow(n$rows) == 1 && n$rows$rel == "c.wav" && n$seen == 3, "new results: only the new row")
+ok(is.null(pd_new_results(f, 3L)$rows), "new results: nothing new")

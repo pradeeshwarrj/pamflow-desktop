@@ -82,11 +82,18 @@ jobs:
           name=$([ "$RUNNER_OS" = "Windows" ] && echo pixi-unpack.exe || echo pixi-unpack)
           echo "pixi-pack $ver"
           curl -fsSL -o "$PACK/$name" \
-            "https://github.com/Quantco/pixi-pack/releases/download/v$ver/${{ matrix.unpack }}" \
-          || curl -fsSL -o "$PACK/$name" \
-            "https://github.com/Quantco/pixi-pack/releases/latest/download/${{ matrix.unpack }}"
+            "https://github.com/Quantco/pixi-pack/releases/download/v$ver/${{ matrix.unpack }}"
           chmod +x "$PACK/$name"
           ls -l "$PACK"
+
+      # The installer ships this exact file, so make sure it can read the pack it ships with.
+      - name: Check the unpacker opens the pack
+        run: |
+          name=$([ "$RUNNER_OS" = "Windows" ] && echo pixi-unpack.exe || echo pixi-unpack)
+          mkdir -p "$RUNNER_TEMP/unpack-check"
+          "$PACK/$name" --output-directory "$RUNNER_TEMP/unpack-check" "$PACK/runtime.tar"
+          ls "$RUNNER_TEMP/unpack-check/env" | head -5
+          rm -rf "$RUNNER_TEMP/unpack-check"
 
       - name: Remove the build copy of the runtime (disk space)
         run: rm -rf runtime/.pixi

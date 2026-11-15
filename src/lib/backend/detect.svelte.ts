@@ -2,10 +2,9 @@
  * Detect step: BirdNET on the recordings (pamflow Stage 3).
  * Built on the shared long-job runner (longjob.svelte.ts).
  */
-import { createLongJob, isActive, type JobStatus, type FileRow, type LogLine } from './longjob.svelte';
+import { createLongJob, isActive, type FileRow, type LogLine } from './longjob.svelte';
 
 export { isActive };
-export type DetectStatus = JobStatus;
 export type { FileRow, LogLine };
 
 const detect = createLongJob();

@@ -1,0 +1,49 @@
+# Fast checks on every push and pull request: the interface's types, the Rust
+# tests, and the R bridge tests. (The engine-wide checks are in the other workflows.)
+
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Interface types
+        run: pnpm check
+
+      - name: Linux libraries for the app window
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test --lib
+
+      - name: R packages for the bridge tests
+        run: |
+          sudo apt-get install -y r-base r-cran-jsonlite r-cran-yaml r-cran-data.table
+      - name: Bridge tests
+        run: |
+          Rscript bridge/tests/test_protocol.R
+          # config_edit tests need pamflow's default settings file
+          git clone --depth 1 https://github.com/pradeeshwarrj/pamflow.git "$RUNNER_TEMP/pamflow"
+          Rscript bridge/tests/test_config_edit.R "$RUNNER_TEMP/pamflow/inst/extdata/config_template.yml"

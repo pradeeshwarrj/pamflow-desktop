@@ -116,7 +116,7 @@
 
   function onKey(e: KeyboardEvent) {
     const tag = (e.target as HTMLElement).tagName;
-    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || !current) return;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || !current || showDraw) return;
     if (e.key === '1') choose('correct');
     else if (e.key === '2') choose('incorrect');
     else if (e.key === '3') choose('unsure');

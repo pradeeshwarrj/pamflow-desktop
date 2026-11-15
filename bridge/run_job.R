@@ -302,6 +302,16 @@ job_inspect <- function(cfg) {
     labels_file <- if (fs::is_absolute_path(bc$labels_file)) bc$labels_file else file.path(cfg$paths$project_root, bc$labels_file)
   }
 
+  # Size: from the last scan when there is one (no stat call per recording).
+  master_path <- file.path(cfg$paths$metadata, "audio_master.csv")
+  audio_gb <- NA_real_
+  if (length(files)) {
+    bytes <- if (file.exists(master_path) && "file_size_b" %in% names(data.table::fread(master_path, nrows = 0L))) {
+      sum(data.table::fread(master_path, select = "file_size_b")$file_size_b, na.rm = TRUE)
+    } else sum(file.size(files), na.rm = TRUE)
+    audio_gb <- round(bytes / 1024^3, 2)
+  }
+
   # How the file name pattern reads a few real files.
   example <- NULL; n_unreadable_names <- NA_integer_
   if (length(files)) {
@@ -328,10 +338,10 @@ job_inspect <- function(cfg) {
           audio_folder = audio_dir,
           audio_folder_found = dir.exists(audio_dir),
           n_audio = if (dir.exists(audio_dir)) length(files) else NA_integer_,
-          audio_gb = if (length(files)) round(sum(file.size(files), na.rm = TRUE) / 1024^3, 2) else NA_real_,
+          audio_gb = audio_gb,
           filename_example = example,
           n_unreadable_names = n_unreadable_names,
-          scanned = file.exists(file.path(cfg$paths$metadata, "audio_master.csv")),
+          scanned = file.exists(master_path),
           deployment_sheet = sheet,
           deployment_sheet_found = file.exists(sheet),
           n_deployments = n_deployments,
@@ -495,7 +505,6 @@ job_model_download <- function(cfg) {
     }
   }
   args <- c("-u", file.path(bridge_dir, "download_model.py"), "--dest", dir)
-  if (isTRUE(job$force)) args <- c(args, "--force")
   res <- tryCatch(
     processx::run(python, args, error_on_status = FALSE, stderr_to_stdout = TRUE,
                   stdout_line_callback = relay, echo_cmd = FALSE),
@@ -727,8 +736,9 @@ job_report <- function(cfg) {
                                        formats = formats, force = TRUE))
   if (res$status != "ok") return(list(status = "failed", message = "Writing the report failed; see the log."))
   files <- report_files(cfg, run)
+  written <- normalizePath(as.character(unlist(res$result)), winslash = "/", mustWork = FALSE)
   made <- vapply(files, function(f) f$format %in% formats && isTRUE(f$exists) &&
-                   difftime(Sys.time(), file.mtime(f$path), units = "mins") < 30, logical(1))
+                   normalizePath(f$path, winslash = "/", mustWork = FALSE) %in% written, logical(1))
   pd_emit("report_done", files = files,
           made = vapply(files[made], `[[`, "", "format"),
           missing = setdiff(formats, vapply(files[made], `[[`, "", "format")),
@@ -786,7 +796,7 @@ emit_validation_state <- function(cfg, with_pool = FALSE) {
   ready <- file.exists(file.path(clip_dir, samples$clip_file)) &
     file.exists(file.path(spec_dir, samples$spec_file))
   shown <- samples[ready]
-  order_ids <- if (nrow(shown)) withr::with_seed(1, sample(shown$sample_id)) else integer()
+  order_ids <- if (nrow(shown)) shown$sample_id[withr::with_seed(1, sample.int(nrow(shown)))] else integer()
   shown <- shown[match(order_ids, shown$sample_id)]
   keep <- intersect(c("sample_id", "round", "strategy", "species", "scientific_name", "common_name",
                       "confidence", "band", "grid", "recorder", "detection_datetime", "filename",

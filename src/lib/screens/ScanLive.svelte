@@ -9,6 +9,8 @@
   import { showFolder } from '$lib/backend/tauri';
   import { project, refreshProject } from '$lib/backend/project.svelte';
   import { detectJob, isActive } from '$lib/backend/detect.svelte';
+  import { filterJob } from '$lib/backend/filter.svelte';
+  import { stdJob } from '$lib/backend/standardize.svelte';
   import { scan, loadScan, runScan } from '$lib/backend/scan.svelte';
   import { t } from '$lib/i18n';
 
@@ -19,6 +21,7 @@
 
   const s = $derived(scan.summary);
   const scanning = $derived(scan.status === 'scanning');
+  const busy = $derived(isActive(detectJob.status) || isActive(filterJob.status) || isActive(stdJob.status));
   let force = $state(false);
   let showLog = $state(false);
 
@@ -45,14 +48,14 @@
   <Card title={t('scan.runTitle')} hint={s?.audio_folder ? t('scan.folder', { folder: s.audio_folder }) : ''}>
     <label class="check"><input type="checkbox" bind:checked={force} /> {t('scan.force')}</label>
     <div class="actions">
-      <Button variant="primary" size="lg" onclick={start} disabled={scanning || isActive(detectJob.status)}>
+      <Button variant="primary" size="lg" onclick={start} disabled={scanning || busy}>
         {scanning ? t('scan.scanning') : s?.available ? t('scan.again') : t('scan.run')}
       </Button>
       {#if s?.available}
         <Button onclick={() => s?.metadata_folder && showFolder(s.metadata_folder)}>{t('detect.openFolder')}</Button>
         <span class="muted">{t('scan.updated', { when: s.updated ?? '' })}</span>
       {/if}
-      {#if isActive(detectJob.status)}<Badge palette="peach">{t('process.waitDetect')}</Badge>{/if}
+      {#if busy}<Badge palette="peach">{t('standardize.busy')}</Badge>{/if}
     </div>
     {#if scanning}<p class="muted">{t('scan.scanningHint')}</p>{/if}
     {#if scan.message}

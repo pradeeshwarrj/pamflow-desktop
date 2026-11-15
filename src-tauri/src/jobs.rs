@@ -175,13 +175,14 @@ pub fn start_job(app: AppHandle, jobs: State<'_, Jobs>, spec: Value) -> Result<S
 
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
+    let mut readers = Vec::new();
     if let Some(out) = stdout {
         let (app, id) = (app.clone(), id.clone());
-        std::thread::spawn(move || read_lines(out, |line| forward_line(&app, &id, line, "stdout")));
+        readers.push(std::thread::spawn(move || read_lines(out, |line| forward_line(&app, &id, line, "stdout"))));
     }
     if let Some(err) = stderr {
         let (app, id) = (app.clone(), id.clone());
-        std::thread::spawn(move || read_lines(err, |line| forward_line(&app, &id, line, "stderr")));
+        readers.push(std::thread::spawn(move || read_lines(err, |line| forward_line(&app, &id, line, "stderr"))));
     }
 
     // Wait for the end in the background, then report it.
@@ -189,6 +190,10 @@ pub fn start_job(app: AppHandle, jobs: State<'_, Jobs>, spec: Value) -> Result<S
         let (app, id) = (app.clone(), id.clone());
         std::thread::spawn(move || {
             let status = child.wait();
+            // all of R's output must reach the screen before "exit"
+            for r in readers {
+                let _ = r.join();
+            }
             let stopped = app
                 .state::<Jobs>()
                 .running

@@ -93,9 +93,7 @@ pub fn upsert_answer(path: &Path, answer: &Answer) -> Result<(), String> {
         }
         writer.flush().map_err(|e| e.to_string())?;
     }
-    if path.exists() {
-        std::fs::remove_file(path).map_err(|e| format!("cannot replace {}: {e}", path.display()))?;
-    }
+    // rename replaces an existing file (also on Windows), so the old file is never deleted first
     std::fs::rename(&tmp, path).map_err(|e| format!("cannot save {}: {e}", path.display()))
 }
 

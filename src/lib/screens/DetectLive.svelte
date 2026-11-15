@@ -13,6 +13,8 @@
   import {
     detectJob, startDetect, stopDetect, isActive, minutesLeft, minutesElapsed
   } from '$lib/backend/detect.svelte';
+  import { filterJob } from '$lib/backend/filter.svelte';
+  import { stdJob } from '$lib/backend/standardize.svelte';
   import { t } from '$lib/i18n';
 
   const TEST_FILES = 5;
@@ -47,7 +49,8 @@
 
   const active = $derived(isActive(detectJob.status));
 
-  const canStart = $derived(!!project.folder && !!runtime?.found && !active);
+  const busyElsewhere = $derived(isActive(filterJob.status) || isActive(stdJob.status));
+  const canStart = $derived(!!project.folder && !!runtime?.found && !active && !busyElsewhere);
   const startLabel = $derived(
     detectJob.status === 'stopped' || detectJob.alreadyDone > 0 ? t('detect.continue') : t('detect.start')
   );
@@ -90,6 +93,7 @@
         <Button variant="primary" size="lg" onclick={start} disabled={!canStart}>
           <Icon name="play" size={14} /> {startLabel}
         </Button>
+        {#if busyElsewhere}<Badge palette="peach">{t('standardize.busy')}</Badge>{/if}
         {#if facts && !facts.model_found}
           <Badge palette="peach">{t('project.modelMissing', { file: facts.model_file ?? '' })}</Badge>
         {/if}

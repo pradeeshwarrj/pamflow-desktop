@@ -43,7 +43,13 @@ pd_norm <- function(p) normalizePath(path.expand(p), winslash = "/", mustWork = 
 pd_config_root <- function(config) {
   pinned <- tryCatch(yaml::read_yaml(config)$paths$project_root, error = function(e) NULL)
   if (pd_is_absolute(pinned)) return(pd_norm(pinned))
-  dir <- dirname(pd_norm(config))
+  pd_derive_root(config)
+}
+
+#' The project folder a settings file at `target` would belong to if it did not
+#' pin `project_root`: the folder above `config/`, or else the folder holding it.
+pd_derive_root <- function(target) {
+  dir <- dirname(pd_norm(target))
   if (tolower(basename(dir)) == "config") dirname(dir) else dir
 }
 
@@ -112,9 +118,13 @@ pd_split_log_line <- function(line) {
 #' @return list(rows = data.frame, seen = new row count)
 pd_new_results <- function(path, seen = 0L) {
   if (!file.exists(path)) return(list(rows = NULL, seen = seen))
-  all <- tryCatch(utils::read.csv(path, stringsAsFactors = FALSE), error = function(e) NULL)
-  if (is.null(all) || nrow(all) <= seen) return(list(rows = NULL, seen = seen))
-  list(rows = all[(seen + 1L):nrow(all), , drop = FALSE], seen = nrow(all))
+  # read only the new lines, not the whole file again (it grows to one row per recording)
+  new <- tryCatch({
+    header <- names(data.table::fread(path, nrows = 0L))
+    data.table::fread(path, skip = seen + 1L, header = FALSE, col.names = header, data.table = FALSE)
+  }, error = function(e) NULL)
+  if (is.null(new) || !nrow(new)) return(list(rows = NULL, seen = seen))
+  list(rows = new, seen = seen + nrow(new))
 }
 
 #' Number of files in a run's checkpoint (done.txt).

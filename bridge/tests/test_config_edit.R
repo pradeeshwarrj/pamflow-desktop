@@ -1,5 +1,6 @@
 # Tests for the comment-preserving config editor. Run from the project folder:
 #   Rscript bridge/tests/test_config_edit.R [path/to/pamflow/config_template.yml]
+source(file.path("bridge", "protocol.R"))
 source(file.path("bridge", "config_edit.R"))
 ok <- function(cond, what) { if (!isTRUE(cond)) stop("FAILED: ", what); cat("ok  ", what, "\n") }
 
