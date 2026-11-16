@@ -133,3 +133,23 @@ pd_checkpoint_count <- function(path) {
   lines <- trimws(readLines(path, warn = FALSE))
   length(unique(lines[nzchar(lines)]))
 }
+
+#' Put pamflow's example project in the Western Ghats (it ships with Great Nicobar data):
+#' new coordinates and habitats in the deployment sheet, and Western Ghats bird names in
+#' the sample detections. Changes only what it finds, so a different example is left alone.
+pd_localize_example <- function(deployments, detections) {
+  sheet <- readLines(deployments, warn = FALSE, encoding = "UTF-8")
+  sheet <- sub(",Forest,Asha,7.01,93.82,", ",Shola forest,Asha,11.41,76.70,", sheet, fixed = TRUE)
+  sheet <- sub(",Plantation,Ravi,7.05,93.85,", ",Tea plantation,Ravi,11.38,76.73,", sheet, fixed = TRUE)
+  writeLines(sheet, deployments)
+
+  d <- utils::read.csv(detections, stringsAsFactors = FALSE)
+  rename <- list(c("Psittacula longicauda", "Psittacula columboides", "Long-tailed Parakeet", "Malabar Parakeet"),
+                 c("Ducula nicobarica", "Ocyceros griseus", "Nicobar Imperial-Pigeon", "Malabar Grey Hornbill"))
+  for (r in rename) {
+    d$scientific_name[d$scientific_name == r[1]] <- r[2]
+    d$common_name[d$common_name == r[3]] <- r[4]
+  }
+  utils::write.csv(d, detections, row.names = FALSE)
+  invisible(TRUE)
+}

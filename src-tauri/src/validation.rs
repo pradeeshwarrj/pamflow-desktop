@@ -119,14 +119,14 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
 
         upsert_answer(&path, &answer(3, "correct", "")).unwrap();
-        upsert_answer(&path, &answer(7, "incorrect", "Otus alius_Nicobar Scops-Owl, maybe")).unwrap();
+        upsert_answer(&path, &answer(7, "incorrect", "Ocyceros griseus_Malabar Grey Hornbill, maybe")).unwrap();
         upsert_answer(&path, &answer(3, "unsure", "")).unwrap(); // replaces the first answer
 
         let text = std::fs::read_to_string(&path).unwrap();
         let lines: Vec<&str> = text.lines().collect();
         assert_eq!(lines[0], "sample_id,verdict,true_species,note,reviewer,reviewed_at");
         assert_eq!(lines.len(), 3);
-        assert!(lines[1].starts_with("7,incorrect,\"Otus alius_Nicobar Scops-Owl, maybe\""));
+        assert!(lines[1].starts_with("7,incorrect,\"Ocyceros griseus_Malabar Grey Hornbill, maybe\""));
         assert!(lines[2].starts_with("3,unsure,"));
         let _ = std::fs::remove_dir_all(&dir);
     }

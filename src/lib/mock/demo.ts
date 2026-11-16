@@ -122,11 +122,11 @@ export const occupancyInfo = {
   updated: '',
   settings: { run_id: 'run01', config_run_id: 'run01', occasion_length_days: 1, min_effort_hours: 2, min_detections: 10, min_confidence: 0.4, thresholds_file: null },
   summary: [
-    { species: 'Otus alius_Nicobar Scops-Owl', threshold_used: 0.4, n_sites: 6, n_occasions: 21, n_sites_detected: 5, naive_occupancy: 0.833 },
-    { species: 'Ducula nicobarica_Nicobar Imperial-Pigeon', threshold_used: 0.4, n_sites: 6, n_occasions: 21, n_sites_detected: 3, naive_occupancy: 0.5 }
+    { species: 'Psittacula columboides_Malabar Parakeet', threshold_used: 0.4, n_sites: 6, n_occasions: 21, n_sites_detected: 5, naive_occupancy: 0.833 },
+    { species: 'Ocyceros griseus_Malabar Grey Hornbill', threshold_used: 0.4, n_sites: 6, n_occasions: 21, n_sites_detected: 3, naive_occupancy: 0.5 }
   ],
   histories: [
-    { species: 'Otus alius_Nicobar Scops-Owl', sites: demoSites, occasions: demoDates, rows: pattern(1) },
-    { species: 'Ducula nicobarica_Nicobar Imperial-Pigeon', sites: demoSites, occasions: demoDates, rows: pattern(2) }
+    { species: 'Psittacula columboides_Malabar Parakeet', sites: demoSites, occasions: demoDates, rows: pattern(1) },
+    { species: 'Ocyceros griseus_Malabar Grey Hornbill', sites: demoSites, occasions: demoDates, rows: pattern(2) }
   ]
 };

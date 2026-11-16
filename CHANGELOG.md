@@ -15,6 +15,7 @@ Fixes from a code audit.
 - Report: a file counts as written only if pamflow wrote it just now.
 - Detect and Scan wait for Filter and Standardize (and each other).
 - The sidebar no longer shows "Analysis engine not found" after first-launch setup.
+- The example project is set in the Western Ghats (Nilgiris), with Malabar Parakeet and Malabar Grey Hornbill, instead of the Nicobar Islands.
 
 ### Internals
 - Faster progress updates and project reads on large projects.

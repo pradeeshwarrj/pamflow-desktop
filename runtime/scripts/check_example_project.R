@@ -31,6 +31,7 @@ ok(length(r$of("example_created")) == 1 && status(r) == "ok", "example project m
 p <- r$of("project")[[1]]
 ok(identical(p$n_audio, 6L) || identical(p$n_audio, 6), "the project has the six example recordings", sprintf("(%s)", p$n_audio))
 root <- r$of("example_created")[[1]]$root
+ok(any(grepl("11.41", readLines(file.path(root, "metadata", "deployments.csv")), fixed = TRUE)), "the example is set in the Western Ghats")
 
 r2 <- run(list(job = "example_project", project = "", documents_dir = docs))
 ok(grepl("pamflow example 2$", r2$of("example_created")[[1]]$root), "a second example gets its own folder")
@@ -41,6 +42,7 @@ ok(status(r) == "ok", "Scan on the example project")
 r <- run(list(job = "process", project = root))
 cat(tail(r$out, 8), sep = "\n")
 ok(status(r) == "ok", "Process on the example detections")
+ok(any(grepl("Malabar Parakeet", vapply(r$of("processed")[[1]]$species, function(x) x$common_name, ""))), "cleaned detections have the Western Ghats species")
 
 diag <- file.path(tempdir(), "diag", "diagnostics.txt")
 r <- run(list(job = "diagnostics", project = root, target = diag, app_version = "test", models_dir = file.path(docs, "models")))

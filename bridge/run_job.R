@@ -162,6 +162,7 @@ if (identical(job$job, "example_project")) {
   }
   ex <- tryCatch(pamflow::pam_example_project(dir), error = function(e) e)
   if (inherits(ex, "error")) fail(paste("Could not make the example project:", conditionMessage(ex)))
+  tryCatch(pd_localize_example(ex$deployments, ex$detections), error = function(e) NULL)  # cosmetic: never fail the job
   pd_emit("example_created", root = ex$root, config = ex$config)
   job$project <- ex$config
   job$config <- NULL

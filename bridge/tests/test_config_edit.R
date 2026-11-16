@@ -25,8 +25,8 @@ cfg_text <- c(
   "  columns: [deployment_id, recorder, grid]",
   "processing:",
   "  species_whitelist:",
-  "    - Otus alius",
-  "    - Ducula nicobarica",
+  "    - Psittacula columboides",
+  "    - Ocyceros griseus",
   "  min_confidence: 0.5",
   "report:",
   "  title: \"PAM # Report\"   # a hash inside quotes is not a comment")
@@ -52,8 +52,8 @@ ok(parse(out)$filenames$pattern == parse(cfg_text)$filenames$pattern, "pattern v
 out <- pd_yaml_set(cfg_text, "processing", "species_whitelist", list())
 ok(identical(parse(out)$processing$species_whitelist, list()), "block list replaced by []")
 ok(parse(out)$processing$min_confidence == 0.5, "setting after the list kept")
-out <- pd_yaml_set(cfg_text, "processing", "species_whitelist", list("Otus alius"))
-ok(identical(parse(out)$processing$species_whitelist, "Otus alius"), "one-item list")
+out <- pd_yaml_set(cfg_text, "processing", "species_whitelist", list("Gracula religiosa"))
+ok(identical(parse(out)$processing$species_whitelist, "Gracula religiosa"), "one-item list")
 
 # 5. booleans and null
 out <- pd_yaml_set(cfg_text, "birdnet", "chunk_size", NULL)
@@ -68,8 +68,8 @@ ok(p$birdnet$overlap_s == 1.5 && p$birdnet$run_id == "run01", "missing key added
 ok(which(out == "  overlap_s: 1.5") < which(out == "deployments:"), "added inside the section, not after it")
 
 # 7. a # inside quotes is part of the value
-out <- pd_yaml_set(cfg_text, "report", "title", "Nicobar PAM")
-ok(any(out == "  title: \"Nicobar PAM\"  # a hash inside quotes is not a comment"), "quoted # handled")
+out <- pd_yaml_set(cfg_text, "report", "title", "Nilgiris PAM")
+ok(any(out == "  title: \"Nilgiris PAM\"  # a hash inside quotes is not a comment"), "quoted # handled")
 
 # 8. several changes at once; all other lines identical
 out <- pd_yaml_apply(cfg_text, list(list(section = "birdnet", key = "min_confidence", value = 0.4),
@@ -83,7 +83,7 @@ if (length(args) && file.exists(args[1])) {
   tpl <- readLines(args[1], warn = FALSE)
   edits <- list(list(section = "birdnet", key = "workers", value = 6),
                 list(section = "birdnet", key = "min_confidence", value = 0.35),
-                list(section = "processing", key = "species_whitelist", value = list("Otus alius")),
+                list(section = "processing", key = "species_whitelist", value = list("Gracula religiosa")),
                 list(section = "occupancy", key = "occasion_length_days", value = 7),
                 list(section = "report", key = "author", value = "Pradeeshwar"),
                 list(section = "validation", key = "reviewer", value = "RJ"))
@@ -93,7 +93,7 @@ if (length(args) && file.exists(args[1])) {
   p <- parse(out); p0 <- parse(tpl)
   ok(p$birdnet$workers == 6 && p$birdnet$min_confidence == 0.35 && p$occupancy$occasion_length_days == 7 &&
        p$report$author == "Pradeeshwar" && p$validation$reviewer == "RJ" &&
-       identical(p$processing$species_whitelist, "Otus alius"), "template: edits applied")
+       identical(p$processing$species_whitelist, "Gracula religiosa"), "template: edits applied")
   edited <- vapply(edits, function(e) paste(e$section, e$key, sep = "."), "")
   same <- TRUE
   for (sec in names(p0)) {

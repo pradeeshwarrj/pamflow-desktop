@@ -74,3 +74,20 @@ cat("c.wav,TRUE,\n", file = f, append = TRUE)
 n <- pd_new_results(f, n$seen)
 ok(nrow(n$rows) == 1 && n$rows$rel == "c.wav" && n$seen == 3, "new results: only the new row")
 ok(is.null(pd_new_results(f, 3L)$rows), "new results: nothing new")
+
+# example project: Nicobar -> Western Ghats
+sheet <- tempfile(fileext = ".csv"); det <- tempfile(fileext = ".csv")
+writeLines(c("deployment_id,recorder,grid,habitat,deployer,latitude,longitude,deploy_date",
+             "1,SW010,59,Forest,Asha,7.01,93.82,05-04-2026",
+             "2,SW012,110,Plantation,Ravi,7.05,93.85,01-04-2026"), sheet)
+utils::write.csv(data.frame(rel = c("a", "b", "c"), scientific_name = c("Psittacula longicauda", "Ducula nicobarica", "Gracula religiosa"),
+                            common_name = c("Long-tailed Parakeet", "Nicobar Imperial-Pigeon", "Common Hill Myna"),
+                            confidence = c(0.9, 0.7, 0.95)), det, row.names = FALSE)
+pd_localize_example(sheet, det)
+s <- readLines(sheet)
+ok(grepl("Shola forest,Asha,11.41,76.70", s[2], fixed = TRUE) && grepl("Tea plantation,Ravi,11.38,76.73", s[3], fixed = TRUE), "example sheet moved to the Western Ghats")
+d <- utils::read.csv(det, stringsAsFactors = FALSE)
+ok(identical(d$common_name, c("Malabar Parakeet", "Malabar Grey Hornbill", "Common Hill Myna")) &&
+   identical(d$scientific_name[1:2], c("Psittacula columboides", "Ocyceros griseus")) && nrow(d) == 3, "example detections renamed, rows kept")
+pd_localize_example(sheet, det)
+ok(identical(readLines(sheet), s), "localizing twice changes nothing more")
