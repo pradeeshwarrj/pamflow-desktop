@@ -3,7 +3,7 @@
 All notable changes to pamflow Desktop. Versions follow the numbers in
 `package.json`.
 
-## Unreleased
+## 0.2.0
 
 ### Added
 - Soundscape: choose the indices in the Project step (written to `soundscape: acoustic_indices:`), progress by batch, and a Stop button; a stopped run continues where it stopped.
