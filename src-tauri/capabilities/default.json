@@ -19,6 +19,9 @@
         },
         {
           "path": "**/report_*.xlsx"
+        },
+        {
+          "path": "**/Soundscape_Report_*.html"
         }
       ]
     }

@@ -41,6 +41,7 @@ makes small adjustments inside its own R session (`pamflow_patches.R`).
 | `detect` | BirdNET detection (scans first if needed). |
 | `process`, `process_results` | Clean detections; read the result. |
 | `validation_state`, `validation_draw`, `validation_metrics` | Validation samples, drawing a round, precision tables. |
+| `soundscape`, `soundscape_results`, `soundscape_vis` | Acoustic indices per site and day/night; plots and HTML report (needs the `soundecology` R package in the runtime). |
 | `occupancy_build`, `occupancy_results`, `model_input` | Detection histories and the input for occupancy models. |
 | `report_preview`, `report` | What a report would contain; write it (HTML, Excel). |
 | `diagnostics` | Writes one text file for bug reports; needs no project. |

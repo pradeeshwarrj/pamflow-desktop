@@ -39,7 +39,7 @@ struct RunningJob {
 fn is_long(job: &str) -> bool {
     matches!(
         job,
-        "detect" | "filter" | "standardize" | "std_plan" | "scan" | "process" | "validation_draw" | "report" | "model_download"
+        "detect" | "filter" | "standardize" | "soundscape" | "std_plan" | "scan" | "process" | "validation_draw" | "report" | "model_download"
     )
 }
 

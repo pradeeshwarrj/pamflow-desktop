@@ -2,7 +2,10 @@
 <script lang="ts">
   import Logo from './Logo.svelte';
   import ThemeSwitch from './ThemeSwitch.svelte';
-  import { stages, accentStyle } from '$lib/config/stages';
+  import Pills from './Pills.svelte';
+  import { goto } from '$app/navigation';
+  import { workflowStages, accentStyle, type Workflow } from '$lib/config/stages';
+  import { workflow, setWorkflow } from '$lib/workflow/workflow.svelte';
   import { stageStatus as demoStatus, project as demoProject } from '$lib/mock/demo';
   import { inApp } from '$lib/backend/tauri';
   import { project } from '$lib/backend/project.svelte';
@@ -14,6 +17,7 @@
   import { processJob } from '$lib/backend/process.svelte';
   import { validation } from '$lib/backend/validation.svelte';
   import { occupancy } from '$lib/backend/occupancy.svelte';
+  import { soundscape, soundscapeJob } from '$lib/backend/soundscape.svelte';
   import { report } from '$lib/backend/report.svelte';
   import { t } from '$lib/i18n';
 
@@ -45,10 +49,22 @@
       const answered = samples.filter((s) => validation.answers[s.sample_id]).length;
       out.validate = answered === samples.length ? { done: true } : { note: `${answered}/${samples.length}` };
     }
+    if (soundscape.info?.report) out.visualize = { done: true };
+    if (isActive(soundscapeJob.status) && soundscapeJob.total) {
+      out.soundscape = { note: `${Math.floor(((soundscapeJob.done + soundscapeJob.failed) / soundscapeJob.total) * 100)}%` };
+    } else if (soundscape.info?.available) out.soundscape = { done: true };
     if (occupancy.info?.available) out.occupancy = { done: true };
     if (report.preview?.files.some((x) => x.exists)) out.report = { done: true };
     return out;
   });
+
+  const visible = $derived(workflowStages(workflow.current));
+
+  function switchWorkflow(w: Workflow) {
+    setWorkflow(w);
+    // leave a screen the other workflow does not have
+    if (!workflowStages(w).some((s) => s.id === current)) goto('/');
+  }
 
   const projectName = $derived(
     inApp ? (project.facts?.root ?? project.folder).split(/[\\/]/).filter(Boolean).pop() ?? '' : demoProject.name
@@ -64,8 +80,13 @@
     </div>
   </div>
 
+  <Pills label={t('workflow.label')} bind:value={() => workflow.current, switchWorkflow} options={[
+    { value: 'A', label: t('workflow.a') },
+    { value: 'B', label: t('workflow.b') }
+  ]} />
+
   <ol class="steps">
-    {#each stages as stage (stage.id)}
+    {#each visible as stage (stage.id)}
       {@const st = status[stage.id] ?? {}}
       {@const active = stage.id === current}
       <li>

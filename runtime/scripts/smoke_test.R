@@ -33,7 +33,7 @@ record("R uses only runtime library", length(outside) == 0,
 
 # --- R packages ---
 pkgs <- c("pamflow", "av", "cli", "data.table", "fs", "ggplot2", "glue", "processx", "ps",
-          "rlang", "seewave", "shiny", "tuneR", "withr", "yaml",
+          "rlang", "seewave", "shiny", "soundecology", "tuneR", "withr", "yaml",
           "reticulate", "openxlsx", "rmarkdown", "knitr", "jsonlite")
 for (p in pkgs) {
   ok <- suppressWarnings(requireNamespace(p, quietly = TRUE))

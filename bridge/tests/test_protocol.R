@@ -91,3 +91,38 @@ ok(identical(d$common_name, c("Malabar Parakeet", "Malabar Grey Hornbill", "Comm
    identical(d$scientific_name[1:2], c("Psittacula columboides", "Ocyceros griseus")) && nrow(d) == 3, "example detections renamed, rows kept")
 pd_localize_example(sheet, det)
 ok(identical(readLines(sheet), s), "localizing twice changes nothing more")
+
+# soundscape progress lines
+ok(identical(pd_parse_log("Starting soundscape processing for 416 remaining files across 4 worker core(s)...")$n, 416L), "soundscape total")
+ok(identical(pd_parse_log("All requested soundscape batch files are already processed.")$n, 0L), "soundscape nothing to do")
+b <- pd_parse_log("Soundscape Batch 2/9 complete. Speed: 812 files/hr | ETA: 0.4 hrs")
+ok(b$kind == "batch" && b$batch == 2L && b$batches == 9L, "soundscape batch")
+
+# soundscape results made with other settings are moved aside, same settings are kept
+d <- file.path(tempdir(), "sc_run"); dir.create(d)
+writeLines(c("file_id,window_index,window_start_sec,window_end_sec,adi,bio", "a,1,0,600,1,2"), file.path(d, "soundscape_raw.csv"))
+writeLines("a", file.path(d, "done.txt"))
+moved <- pd_archive_stale_soundscape(d, "S1", c("ACI", "AEve"))
+ok(!is.null(moved) && file.exists(file.path(moved, "soundscape_raw.csv")) && !file.exists(file.path(d, "soundscape_raw.csv")) &&
+   !file.exists(file.path(d, "done.txt")), "other indices: old results moved aside, none deleted")
+writeLines(c("file_id,window_index,window_start_sec,window_end_sec,aci,aeve", "a,1,0,600,1,2"), file.path(d, "soundscape_raw.csv"))
+writeLines("a", file.path(d, "done.txt"))
+ok(is.null(pd_archive_stale_soundscape(d, "S1", c("ACI", "AEve"))) && file.exists(file.path(d, "done.txt")), "same settings: kept, a stopped run can continue")
+moved2 <- pd_archive_stale_soundscape(d, "S2", c("ACI", "AEve"))
+ok(!is.null(moved2) && !file.exists(file.path(d, "done.txt")), "same indices but other window or filter: moved aside")
+ok(is.null(pd_archive_stale_soundscape(file.path(tempdir(), "sc_new"), "S1", "ACI")) && file.exists(file.path(tempdir(), "sc_new", "settings_used.json")), "new run: nothing to move, settings recorded")
+
+# the indices in the file are the choice (pamflow's merge would delete "ACI:" and keep the rest)
+tpl <- list(ACI = NULL, ADI = list(fmin = 0, fmax = 24000), Bio = list(flim = c(2000, 11000)), H = NULL)
+r <- pd_resolve_indices(list(ACI = NULL), tpl)
+ok(identical(names(r), "ACI"), "only the listed index is used")
+r <- pd_resolve_indices(list(ADI = NULL, Bio = list(flim = c(1500, 9000))), tpl)
+ok(identical(names(r), c("ADI", "Bio")) && identical(r$ADI$fmax, 24000) && identical(r$Bio$flim, c(1500, 9000)), "own settings over pamflow's defaults, defaults for the rest")
+ok(identical(names(pd_resolve_indices(list(ACI = NULL, H = NULL), tpl)), "ACI"), "H is dropped (it comes out empty in pamflow)")
+ok(identical(pd_resolve_indices(list(), tpl), list()), "nothing listed: nothing chosen here (the caller keeps pamflow's defaults)")
+raw <- yaml::yaml.load("soundscape:
+  acoustic_indices:
+    ACI:
+")$soundscape$acoustic_indices
+merged <- utils::modifyList(list(acoustic_indices = list(ACI = NULL, ADI = list(), H = NULL)), list(acoustic_indices = raw))$acoustic_indices
+ok(!"ACI" %in% names(merged) && "ADI" %in% names(merged), "pamflow's own merge turns the choice around (the reason for this fix)")

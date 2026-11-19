@@ -36,12 +36,14 @@ pub fn save_validation_answer(results_path: String, answer: Answer) -> Result<()
     upsert_answer(&path, &answer)
 }
 
-/// Let the window show files from a validation folder (clips, spectrograms).
+/// Let the window show files from a validation folder (clips, spectrograms)
+/// or a soundscape plots folder.
 #[tauri::command]
 pub fn allow_media_folder(app: AppHandle, folder: String) -> Result<(), String> {
     let dir = PathBuf::from(&folder);
-    if dir.file_name().and_then(|n| n.to_str()) != Some("validation") || !dir.is_dir() {
-        return Err(format!("not a validation folder: {folder}"));
+    let name = dir.file_name().and_then(|n| n.to_str());
+    if !matches!(name, Some("validation") | Some("plots")) || !dir.is_dir() {
+        return Err(format!("not a validation or plots folder: {folder}"));
     }
     app.asset_protocol_scope()
         .allow_directory(&dir, true)

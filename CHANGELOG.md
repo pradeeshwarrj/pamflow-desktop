@@ -3,6 +3,18 @@
 All notable changes to pamflow Desktop. Versions follow the numbers in
 `package.json`.
 
+## Unreleased
+
+### Added
+- Soundscape: choose the indices in the Project step (written to `soundscape: acoustic_indices:`), progress by batch, and a Stop button; a stopped run continues where it stopped.
+- Visualize step (workflow B): 24-hour diel plots, Day/Night comparisons and an HTML report, also from a partly finished run.
+- Soundscape settings in the Project step: window, high-pass, day hours, indices, batch size, workers.
+- Soundscape progress counts files from earlier runs too; results made with other settings are moved to an `old_*` folder.
+- Workflow toggle in the sidebar: A (detection, as before) and B (soundscape indices: Project, Standardize, Scan, Soundscape with plots and an HTML report).
+
+### Changed
+- Acoustic Entropy (H) is not offered: it comes out empty in pamflow 0.6.0.
+
 ## 0.1.1 (in testing)
 
 Fixes from a code audit.

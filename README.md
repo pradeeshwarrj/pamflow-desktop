@@ -28,6 +28,14 @@ tried by hand; all four systems are built and checked on GitHub.
 | **Occupancy** | Builds a detection history per species and the input for occupancy models. |
 | **Report** | Writes an HTML report and an Excel workbook. |
 
+The sidebar has a **Workflow** toggle. **A** is the detection workflow above. **B** is the soundscape workflow, which skips BirdNET:
+
+| Step (workflow B) | What happens |
+|---|---|
+| **Project** | As above, plus the soundscape settings: window length, high-pass, day hours, which indices to compute (ACI, ADI, AEve, Bio, M, NDSI), batch size and CPU workers. Only the settings of the chosen workflow are shown. |
+| **Soundscape** | Computes the chosen acoustic indices per recording in batches, with progress, Stop and continue. Shows the mean per site and day/night. Results made with other settings are moved to an `old_*` folder, not mixed in. |
+| **Visualize** | Makes 24-hour diel plots, Day/Night comparisons and an HTML report; works on the recordings analysed so far. |
+
 Everything stays on your computer. Nothing is uploaded; the only thing that
 needs internet is the optional download of BirdNET's own model.
 
@@ -104,7 +112,7 @@ solution for avian diversity monitoring*, Ecological Informatics 61, 101236.
 
 ### Long runs
 
-- While Detect, Filter, Standardize, Scan, Process, Report or a model download
+- While Detect, Filter, Standardize, Scan, Soundscape, Process, Report or a model download
   run, the computer is kept from going to sleep on its own. Closing the lid or
   choosing Sleep yourself still sleeps it.
 - Closing the window during a run asks first. Stopping is safe: the run

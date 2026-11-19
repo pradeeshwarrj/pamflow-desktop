@@ -90,6 +90,16 @@ pd_parse_log <- function(text) {
   m <- regmatches(text, regexec("; ([0-9]+) files pending;", text))[[1]]
   if (length(m) != 2) m <- regmatches(text, regexec("^([0-9]+) files to filter \\(", text))[[1]]
   if (length(m) == 2) return(list(kind = "total", n = as.integer(m[2])))
+  # Soundscape: "Starting soundscape processing for 416 remaining files across 4 worker core(s)..."
+  m <- regmatches(text, regexec("soundscape processing for ([0-9]+) remaining files", text))[[1]]
+  if (length(m) == 2) return(list(kind = "total", n = as.integer(m[2])))
+  if (grepl("All requested soundscape batch files are already processed", text, fixed = TRUE)) {
+    return(list(kind = "total", n = 0L))
+  }
+  # Soundscape: "Soundscape Batch 2/9 complete. Speed: ..." (pamflow's batches are 50 files)
+  m <- regmatches(text, regexec("Soundscape Batch ([0-9]+)/([0-9]+) complete", text))[[1]]
+  if (length(m) == 3) return(list(kind = "batch", batch = as.integer(m[2]), batches = as.integer(m[3]),
+                                  ok = NA_integer_, failed = 0L, detections = 0L))
   if (grepl("nothing pending for this run", text, fixed = TRUE) ||
       grepl("nothing pending; all files already filtered", text, fixed = TRUE)) {
     return(list(kind = "total", n = 0L))
@@ -152,4 +162,62 @@ pd_localize_example <- function(deployments, detections) {
   }
   utils::write.csv(d, detections, row.names = FALSE)
   invisible(TRUE)
+}
+
+#' Soundscape results belong to the settings that made them.
+#'
+#' pamflow remembers the files it finished per run name and skips them, so after
+#' the indices, window or filter change, old results would be mixed with new
+#' ones. If the run folder holds results made with other settings, they are moved
+#' (not deleted) into old_<time>/ so the next run starts fresh. Results from the
+#' same settings are left alone, so a stopped run continues.
+#' @param dir the run's folder; @param signature the settings as one line of text;
+#' @param indices the index names switched on (e.g. "ACI").
+#' @return the folder the old results were moved to, or NULL when nothing moved.
+pd_archive_stale_soundscape <- function(dir, signature, indices) {
+  raw <- file.path(dir, "soundscape_raw.csv")
+  sig_file <- file.path(dir, "settings_used.json")
+  remember <- function() { dir.create(dir, recursive = TRUE, showWarnings = FALSE); writeLines(signature, sig_file) }
+  if (!file.exists(raw) || file.size(raw) == 0) { remember(); return(NULL) }
+  header <- tryCatch(names(utils::read.csv(raw, nrows = 1, check.names = FALSE)), error = function(e) NULL)
+  if (is.null(header)) return(NULL)
+  made_with <- tolower(setdiff(header, c("file_id", "window_index", "window_start_sec", "window_end_sec")))
+  same_indices <- setequal(made_with, tolower(indices))
+  # results from before the settings were recorded: only their columns can be checked
+  same_settings <- if (file.exists(sig_file)) identical(readLines(sig_file, warn = FALSE)[1], signature) else TRUE
+  if (same_indices && same_settings) { remember(); return(NULL) }
+  stamp <- file.path(dir, paste0("old_", format(Sys.time(), "%Y%m%d-%H%M%S")))
+  old <- stamp
+  for (n in 2:99) if (dir.exists(old)) old <- paste0(stamp, "_", n)
+  dir.create(old, recursive = TRUE)
+  for (f in c("soundscape_raw.csv", "done.txt", "soundscape_hourly.csv", "soundscape_diel_summary.csv",
+              "soundscape_site_covariates.csv", "plots", "reports", "settings_used.json")) {
+    if (file.exists(file.path(dir, f))) file.rename(file.path(dir, f), file.path(old, f))
+  }
+  remember()
+  old
+}
+
+# Indices the app does not offer: Acoustic Entropy (H) comes out empty for every file in pamflow 0.6.0.
+# Remove it here once pamflow computes it.
+PD_UNAVAILABLE_INDICES <- "H"
+
+#' The soundscape indices a settings file asks for.
+#'
+#' pamflow merges the file over its own defaults with modifyList(), where a
+#' listed index with no settings ("ACI:" = null) is DELETED and an index that is
+#' not listed stays on: the opposite of what the list says. The list in the file
+#' is the choice, so exactly those indices are used, each with its own settings
+#' laid over pamflow's defaults for that index.
+#' @param user `soundscape: acoustic_indices:` as read from the file itself.
+#' @param defaults the same from pamflow's template.
+#' @return a named list, one entry per chosen index (an empty list when it has no settings).
+pd_resolve_indices <- function(user, defaults) {
+  out <- list()
+  for (name in setdiff(names(user), PD_UNAVAILABLE_INDICES)) {
+    base <- if (is.list(defaults[[name]])) defaults[[name]] else list()
+    own <- user[[name]]
+    out[[name]] <- if (is.list(own) && length(own)) utils::modifyList(base, own) else base
+  }
+  out
 }

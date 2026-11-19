@@ -123,4 +123,21 @@ ok(identical(pd_derive_root(file.path(proj, "config", "x.yml")), gsub("\\\\", "/
    "root derived from config/ folder")
 f <- tempfile(fileext = ".yml"); pd_write_lines(std, f)
 ok(identical(readLines(f, warn = FALSE), std) && !any(readBin(f, "raw", file.size(f)) == as.raw(13)), "written with plain line endings, read back unchanged")
+
+# soundscape indices: keep what stays selected, add defaults for new ones, drop the rest
+sc <- c("soundscape:", "  enabled: true", "  window_mins: 10",
+        "  acoustic_indices:   # which indices",
+        "    ACI:", "    Bio:", "      flim: [1500, 9000]   # my range", "    NDSI:",
+        "      anthro_range: [1000, 2000]",
+        "  day_hours: [6, 17]", "", "occupancy:", '  run_id: "x"')
+o <- pd_yaml_set_indices(sc, c("NDSI", "Bio", "ADI"))
+p <- parse(o)
+ok(identical(names(p$soundscape$acoustic_indices), c("ADI", "Bio", "NDSI")), "indices: chosen ones only, in pamflow's order")
+ok(identical(p$soundscape$acoustic_indices$Bio$flim, c(1500L, 9000L)) && any(grepl("# my range", o, fixed = TRUE)), "indices: kept index keeps its settings and comment")
+ok(identical(p$soundscape$acoustic_indices$ADI$bin_step, 1000L), "indices: new index gets pamflow's defaults")
+ok(any(grepl("# which indices", o, fixed = TRUE)) && identical(p$soundscape$day_hours, c(6L, 17L)) && identical(p$occupancy$run_id, "x"), "indices: neighbours and comment untouched")
+ok(identical(names(parse(pd_yaml_set_indices(sc[1:3], "M"))$soundscape$acoustic_indices), "M"), "indices: added when the key is missing")
+ok(identical(names(parse(pd_yaml_set_indices(c("paths:", "  a: 1"), c("M", "ACI")))$soundscape$acoustic_indices), c("ACI", "M")), "indices: added when the section is missing")
+ok(inherits(try(pd_yaml_set_indices(sc, character()), silent = TRUE), "try-error"), "indices: an empty choice is refused")
+ok(identical(names(parse(pd_yaml_apply(sc, list(list(section = "soundscape", key = "acoustic_indices", value = list("AEve", "M")))))$soundscape$acoustic_indices), c("AEve", "M")), "indices: reached through pd_yaml_apply")
 cat("all config editor tests passed\n")

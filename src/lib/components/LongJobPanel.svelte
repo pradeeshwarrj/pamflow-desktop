@@ -1,5 +1,5 @@
 <!--
-  Live view of a long-running job (Standardize, Filter, Detect): progress panel with Stop,
+  Live view of a long-running job (Standardize, Filter, Detect, Soundscape): progress panel with Stop,
   totals, and the list of finished files (or the full log).
 -->
 <script lang="ts">
@@ -16,7 +16,7 @@
 
   let { job, kind, onstop, minutesLeft, minutesElapsed }: {
     job: LongJobState;
-    kind: 'detect' | 'filter' | 'standardize';
+    kind: 'detect' | 'filter' | 'standardize' | 'soundscape';
     onstop: () => void;
     minutesLeft: () => number | null;
     minutesElapsed: () => number;
@@ -111,6 +111,8 @@
             <Badge round palette="peach">{t('detect.failedFile')}{row.message ? ` · ${row.message}` : ''}</Badge>
           {:else if kind === 'filter'}
             <Badge round palette="mint">{t('filter.fileDone')}</Badge>
+          {:else if kind === 'soundscape'}
+            <Badge round palette="mint">{t('soundscape.fileDone')}</Badge>
           {:else if kind === 'standardize'}
             <Badge round palette="mint">{t(`standardize.rowDone.${row.message === 'converted' ? 'converted' : 'copied'}`)}</Badge>
           {:else if (row.n_detections ?? 0) > 0}

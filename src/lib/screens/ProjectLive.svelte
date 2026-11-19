@@ -12,9 +12,12 @@
   import { pickFolder, pickFile } from '$lib/backend/tauri';
   import { project } from '$lib/backend/project.svelte';
   import { settings, syncDraft, id } from '$lib/backend/settings.svelte';
+  import { workflow } from '$lib/workflow/workflow.svelte';
   import { t } from '$lib/i18n';
 
   const f = $derived(project.facts);
+  // A = detection settings, B = soundscape settings; folders and the sheet are shared
+  const isA = $derived(workflow.current === 'A');
 
   // Load the saved values into the form whenever the project facts change.
   $effect(syncDraft);
@@ -47,6 +50,25 @@
   // pills bound straight to the draft ("Auto" = null in config.yml)
   const getWorkers = () => (get('birdnet', 'workers') as number | null) ?? 0;
   const setWorkers = (v: number) => set('birdnet', 'workers', v === 0 ? null : v);
+  // day hours [first, last]: counted as day (both included), every other hour is night
+  const dayHours = $derived.by(() => {
+    const v = get('soundscape', 'day_hours');
+    return Array.isArray(v) && v.length === 2 ? v.map(Number) : [6, 17];
+  });
+  const setDayHour = (i: 0 | 1, raw: string) => {
+    const n = Math.round(Number(raw));
+    if (raw.trim() === '' || !Number.isFinite(n)) return;
+    const next = [...dayHours];
+    next[i] = Math.min(23, Math.max(0, n));
+    set('soundscape', 'day_hours', next);
+  };
+  const getSoundWorkers = () => (get('soundscape', 'workers') as number | null) ?? 0;
+  const setSoundWorkers = (v: number) => set('soundscape', 'workers', v === 0 ? null : v);
+  // the indices switched on, in pamflow's order; saved as soundscape: acoustic_indices:
+  const INDICES = ['ACI', 'ADI', 'AEve', 'Bio', 'M', 'NDSI'];
+  const chosen = $derived((get('soundscape', 'acoustic_indices') as string[] | null) ?? []);
+  const toggleIndex = (name: string, on: boolean) =>
+    set('soundscape', 'acoustic_indices', INDICES.filter((n) => (n === name ? on : chosen.includes(n))));
   const getInput = () => ((get('birdnet', 'input') as string) ?? 'standardized') as 'standardized' | 'filtered';
   const setInput = (v: 'standardized' | 'filtered') => set('birdnet', 'input', v);
 
@@ -74,7 +96,7 @@
     <StatTile value={f.n_audio == null ? '–' : f.n_audio.toLocaleString()} label={t('project.recordingsFound')} />
     <StatTile value={sizeLabel} label={t('project.ofAudio')} palette="mint" />
     <StatTile value={f.n_deployments ?? '–'} label={t('project.deploymentsInSheet')} palette="lavender" />
-    <StatTile value={f.n_labels ?? '–'} label={t('settings.speciesInModel')} palette="peach" />
+    {#if isA}<StatTile value={f.n_labels ?? '–'} label={t('settings.speciesInModel')} palette="peach" />{/if}
   </div>
 
   <div class="grid-2">
@@ -116,6 +138,7 @@
       {/if}
     </Card>
 
+    {#if isA}
     <ModelCard />
 
     <Card title={t('settings.detection')} hint={t('settings.detectionHint')}>
@@ -205,7 +228,59 @@
         </div>
       </div>
     </Card>
+    {:else}
+    <Card title={t('settings.soundscape')} hint={t('settings.soundscapeHint')}>
+      <label class="check"><input type="checkbox" checked={Boolean(get('soundscape', 'enabled'))}
+        onchange={(e) => set('soundscape', 'enabled', e.currentTarget.checked)} /> {t('settings.soundscapeOn')}</label>
+      <div class="pair">
+        <div>
+          <label class="sub" for="s-swin">{t('settings.soundscapeWindow')}</label>
+          <input id="s-swin" class="input" type="number" min="1" step="1" placeholder={t('soundscape.wholeFile')} value={num('soundscape', 'window_mins')}
+            oninput={(e) => setNum('soundscape', 'window_mins', e.currentTarget.value, true)} />
+        </div>
+        <div>
+          <label class="sub" for="s-shp">{t('settings.highpass')}</label>
+          <input id="s-shp" class="input" type="number" min="0" step="50" value={num('soundscape', 'low_stop_hz')}
+            oninput={(e) => setNum('soundscape', 'low_stop_hz', e.currentTarget.value)} />
+        </div>
+        <div>
+          <label class="sub" for="s-srun">{t('settings.soundscapeRun')}</label>
+          <input id="s-srun" class="input" value={str('soundscape', 'run_id')}
+            oninput={(e) => set('soundscape', 'run_id', e.currentTarget.value)} />
+        </div>
+      </div>
+      <div class="pair">
+        <div>
+          <label class="sub" for="s-dstart">{t('settings.soundscapeDayStart')}</label>
+          <input id="s-dstart" class="input" type="number" min="0" max="23" step="1" value={dayHours[0]}
+            oninput={(e) => setDayHour(0, e.currentTarget.value)} />
+        </div>
+        <div>
+          <label class="sub" for="s-dend">{t('settings.soundscapeDayEnd')}</label>
+          <input id="s-dend" class="input" type="number" min="0" max="23" step="1" value={dayHours[1]}
+            oninput={(e) => setDayHour(1, e.currentTarget.value)} />
+        </div>
+      </div>
+      <span class="muted">{t('settings.soundscapeDayHint')}</span>
+      {#if dayHours[0] > dayHours[1]}<span class="problem">{t('settings.soundscapeDayOrder')}</span>{/if}
+      <span class="sub">{t('project.workers')}</span>
+      <Pills label={t('project.workers')} bind:value={getSoundWorkers, setSoundWorkers} options={workerChoices} />
+      <label class="sub" for="s-sbatch">{t('settings.soundscapeBatch')}</label>
+      <input id="s-sbatch" class="input" type="number" min="1" step="10" placeholder="50" value={num('soundscape', 'batch_size')}
+        oninput={(e) => setNum('soundscape', 'batch_size', e.currentTarget.value, true)} />
+      <span class="muted">{t('settings.soundscapeBatchHint')}</span>
+      <span class="sub">{t('settings.soundscapeIndices')}</span>
+      <div class="indices">
+        {#each INDICES as name (name)}
+          <label class="check" title={t(`settings.index.${name}`)}><input type="checkbox" checked={chosen.includes(name)}
+            onchange={(e) => toggleIndex(name, e.currentTarget.checked)} /> {name} <span class="muted">{t(`settings.index.${name}`)}</span></label>
+        {/each}
+      </div>
+      {#if !chosen.length}<span class="problem">{t('settings.soundscapeNoIndex')}</span>{/if}
+    </Card>
+    {/if}
 
+    {#if isA}
     <Card title={t('settings.reviewAndReport')}>
       <div class="pair">
         <div>
@@ -225,6 +300,7 @@
       <label class="check"><input type="checkbox" checked={Boolean(get('validation', 'show_confidence'))}
         onchange={(e) => set('validation', 'show_confidence', e.currentTarget.checked)} /> {t('settings.showConfidence')}</label>
     </Card>
+    {/if}
   </div>
 
   <SaveBar />
@@ -243,4 +319,6 @@
   .pair > div { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
   .check { display: flex; align-items: center; gap: var(--space-2); min-height: 40px; font-size: var(--text-sm); cursor: pointer; }
   .check input { width: 18px; height: 18px; margin: 0; }
+  .indices { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0 var(--space-3); }
+  .problem { color: var(--rose-ink); font-weight: var(--weight-semibold); font-size: var(--text-sm); }
 </style>

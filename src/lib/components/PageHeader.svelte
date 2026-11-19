@@ -2,6 +2,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { stageNumber } from '$lib/config/stages';
+  import { workflow } from '$lib/workflow/workflow.svelte';
   import { t } from '$lib/i18n';
 
   let { stage, title, intro, aside }: {
@@ -14,7 +15,7 @@
 
 <header>
   <div class="text">
-    <span class="chip">{t('common.step', { n: stageNumber(stage), name: t(`stages.${stage}`) })}</span>
+    <span class="chip">{t('common.step', { n: stageNumber(stage, workflow.current), name: t(`stages.${stage}`) })}</span>
     <h1>{title}</h1>
     {#if intro}<p>{intro}</p>{/if}
   </div>

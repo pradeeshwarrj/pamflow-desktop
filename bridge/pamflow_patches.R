@@ -30,5 +30,20 @@ pam_desktop_apply_patches <- function() {
     }
   }
 
+  # 2. Soundscape: batch size from config.yml (soundscape: batch_size:).
+  #    pamflow 0.6.0 fixes it at 50 files inside pam_soundscape_batch(). The one
+  #    line is rewritten to read the setting (still 50 when it is not set).
+  #    If pamflow changes that line, nothing is patched.
+  ns <- asNamespace("pamflow")
+  if (exists("pam_soundscape_batch", envir = ns, inherits = FALSE)) {
+    txt <- deparse(get("pam_soundscape_batch", envir = ns), width.cutoff = 500L)
+    hit <- grep("^\\s*batch_size <- 50L?\\s*$", txt)
+    if (length(hit) == 1) {
+      txt[hit] <- "  batch_size <- max(1L, as.integer(pam_or(sc_cfg$batch_size, 50L)))"
+      utils::assignInNamespace("pam_soundscape_batch", eval(parse(text = txt), envir = ns), ns = "pamflow")
+      applied <- c(applied, "soundscape batch size from config")
+    }
+  }
+
   invisible(applied)
 }

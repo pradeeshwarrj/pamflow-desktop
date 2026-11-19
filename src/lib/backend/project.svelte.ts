@@ -6,6 +6,7 @@ import { inApp, runJob, jobContext, type JobEvent, failureMessage } from './taur
 import { processJob } from './process.svelte';
 import { validation } from './validation.svelte';
 import { occupancy } from './occupancy.svelte';
+import { soundscape } from './soundscape.svelte';
 import { report } from './report.svelte';
 import { scan } from './scan.svelte';
 import { filterInfo } from './filter.svelte';
@@ -19,7 +20,7 @@ const CONFIG_KEY = 'pamflow-project-config';
 export interface Setting {
   section: string;
   key: string;
-  kind: 'folder' | 'file' | 'text' | 'number' | 'integer' | 'integer_or_null' | 'boolean' | 'choice';
+  kind: 'folder' | 'file' | 'text' | 'number' | 'integer' | 'integer_or_null' | 'boolean' | 'choice' | 'indices' | 'list';
   value: unknown;
   in_file: boolean;
 }
@@ -112,6 +113,8 @@ function resetProjectState() {
   occupancy.info = null;
   occupancy.model = null;
   report.preview = null;
+  soundscape.status = 'idle';
+  soundscape.info = null;
   scan.status = 'idle';
   scan.summary = null;
   filterInfo.settings = null;

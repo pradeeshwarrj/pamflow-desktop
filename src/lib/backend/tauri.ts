@@ -25,6 +25,7 @@ export interface JobSpec {
     | 'inspect' | 'detect' | 'process' | 'process_results'
     | 'validation_state' | 'validation_draw' | 'validation_metrics'
     | 'occupancy_build' | 'occupancy_results' | 'model_input'
+    | 'soundscape' | 'soundscape_results' | 'soundscape_vis'
     | 'report_preview' | 'report' | 'config_save'
     | 'scan' | 'scan_results' | 'filter_info' | 'filter'
     | 'std_state' | 'std_plan' | 'standardize'

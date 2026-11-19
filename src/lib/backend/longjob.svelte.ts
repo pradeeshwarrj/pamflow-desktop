@@ -31,6 +31,7 @@ export interface LongJobState {
   status: JobStatus;
   total: number | null;   // files to do in this run
   alreadyDone: number;    // finished in earlier runs (resume)
+  cumulative: boolean;    // done and total already include alreadyDone (Soundscape)
   done: number;
   failed: number;
   detections: number;
@@ -53,14 +54,14 @@ export const isActive = (s: JobStatus) =>
   s === 'starting' || s === 'scanning' || s === 'running' || s === 'stopping';
 
 /** Stages after which the job counts as "running" (anything but scanning first). */
-const MAIN_STAGES = new Set(['detect', 'filter', 'standardize']);
+const MAIN_STAGES = new Set(['detect', 'filter', 'standardize', 'soundscape']);
 /** Stages shown as "preparing" before the main work starts. */
 const PREP_STAGES = new Set(['scan', 'std_inspect']);
 
 /** `onEvent` (optional) also sees every event of this job, e.g. to reload results when it ends. */
 export function createLongJob(onEvent?: (e: JobEvent) => void) {
   const state = $state<LongJobState>({
-    id: '', status: 'idle', total: null, alreadyDone: 0, done: 0, failed: 0, detections: 0,
+    id: '', status: 'idle', total: null, alreadyDone: 0, cumulative: false, done: 0, failed: 0, detections: 0,
     batch: 0, batches: 0, runDir: '', startedAt: 0, message: '', rows: [], log: [], prepDone: 0, prepTotal: 0
   });
 
@@ -87,6 +88,8 @@ export function createLongJob(onEvent?: (e: JobEvent) => void) {
           state.status = 'running';
           state.runDir = String(e.run_dir ?? '');
           state.alreadyDone = Number(e.already_done ?? 0);
+          state.cumulative = e.cumulative === true;
+          if (state.cumulative) state.done = state.alreadyDone; // earlier runs count as done from the start
           state.startedAt = Date.now();
         }
         break;
@@ -135,7 +138,7 @@ export function createLongJob(onEvent?: (e: JobEvent) => void) {
   async function start(spec: JobSpec) {
     listenOnce();
     Object.assign(state, {
-      status: 'starting', total: null, alreadyDone: 0, done: 0, failed: 0, detections: 0,
+      status: 'starting', total: null, alreadyDone: 0, cumulative: false, done: 0, failed: 0, detections: 0,
       batch: 0, batches: 0, runDir: '', startedAt: 0, message: '', rows: [], log: [], prepDone: 0, prepTotal: 0
     });
     try {
@@ -158,10 +161,11 @@ export function createLongJob(onEvent?: (e: JobEvent) => void) {
 
   /** Minutes left, from the average time per finished file so far. */
   function minutesLeft(): number | null {
-    const finished = state.done + state.failed;
-    if (!state.startedAt || !finished || state.total === null) return null;
+    const before = state.cumulative ? state.alreadyDone : 0; // files not done in this run
+    const finished = state.done + state.failed - before;
+    if (!state.startedAt || finished <= 0 || state.total === null) return null;
     const perFile = (Date.now() - state.startedAt) / finished;
-    return Math.max(0, Math.round(((state.total - finished) * perFile) / 60000));
+    return Math.max(0, Math.round(((state.total - before - finished) * perFile) / 60000));
   }
 
   function minutesElapsed(): number {

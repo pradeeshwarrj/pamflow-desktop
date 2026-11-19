@@ -3,6 +3,7 @@
 # runtime's own R library (never into the user's normal R).
 #
 #   tuneR, seewave  : pamflow imports, not on conda-forge
+#   soundecology   : acoustic indices for the Soundscape workflow (pamflow suggests it)
 #   av              : only on Apple Silicon (no conda-forge build there)
 #   pamflow         : downloaded from GitHub at a fixed version (below),
 #                     never from a local folder
@@ -26,7 +27,7 @@ cat("Installing into:", lib, "\n")
 is_windows <- .Platform$OS.type == "windows"
 is_mac_arm <- Sys.info()[["sysname"]] == "Darwin" && R.version$arch %in% c("aarch64", "arm64")
 
-wanted <- c("tuneR", "seewave")
+wanted <- c("tuneR", "seewave", "soundecology")
 if (is_mac_arm) wanted <- c("av", wanted)
 
 missing <- wanted[!vapply(wanted, requireNamespace, logical(1), quietly = TRUE)]

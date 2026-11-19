@@ -9,6 +9,7 @@
 #            "detect" | "process" | "process_results" |
 #            "validation_state" | "validation_draw" | "validation_metrics" |
 #            "occupancy_build" | "occupancy_results" | "model_input" |
+#            "soundscape" | "soundscape_results" | "soundscape_vis" |
 #            "report_preview" | "report",
 #     "project": "<project folder or config.yml>",
 #     "config": "<settings file anywhere; wins over the folder's own>",   (optional)
@@ -226,6 +227,14 @@ cfg <- tryCatch(pam_config_read(found$config), error = function(e) fail(conditio
 # settings the app changes for this run only
 if (length(job$birdnet)) cfg$birdnet <- utils::modifyList(cfg$birdnet, as.list(job$birdnet))
 if (length(job$filter)) cfg$filter <- utils::modifyList(cfg$filter, as.list(job$filter))
+# the indices listed in the file are the choice (see pd_resolve_indices)
+chosen_indices <- tryCatch(yaml::read_yaml(found$config)$soundscape$acoustic_indices, error = function(e) NULL)
+if (length(chosen_indices)) {
+  template <- system.file("extdata", "config_template.yml", package = "pamflow")
+  template_indices <- if (nzchar(template)) yaml::read_yaml(template)$soundscape$acoustic_indices else NULL
+  cfg$soundscape$acoustic_indices <- pd_resolve_indices(chosen_indices, template_indices)
+}
+for (unavailable in PD_UNAVAILABLE_INDICES) cfg$soundscape$acoustic_indices[[unavailable]] <- NULL   # also pamflow's own defaults
 if (is.null(cfg$birdnet$python_env) && nzchar(job$runtime %||% "")) {
   cfg$birdnet$python_env <- job$runtime   # BirdNET runs with the bundled Python
 }
@@ -270,6 +279,14 @@ EDITABLE <- list(
   list("occupancy", "min_effort_hours", "number"),
   list("occupancy", "min_detections", "integer"),
   list("occupancy", "run_id", "text"),
+  list("soundscape", "enabled", "boolean"),
+  list("soundscape", "window_mins", "integer_or_null"),
+  list("soundscape", "low_stop_hz", "number"),
+  list("soundscape", "workers", "integer_or_null"),
+  list("soundscape", "batch_size", "integer_or_null"),
+  list("soundscape", "day_hours", "list"),   # shown on the Soundscape screen; edited in config.yml
+  list("soundscape", "run_id", "text"),
+  list("soundscape", "acoustic_indices", "indices"),
   list("validation", "reviewer", "text"),
   list("validation", "show_confidence", "boolean"),
   list("report", "title", "text"),
@@ -284,6 +301,7 @@ editable_settings <- function(config_path) {
   lapply(EDITABLE, function(e) {
     in_file <- !is.null(raw[[e[[1]]]]) && e[[2]] %in% names(raw[[e[[1]]]])
     value <- if (in_file) raw[[e[[1]]]][[e[[2]]]] else defaults[[e[[1]]]][[e[[2]]]]
+    if (identical(e[[3]], "indices")) value <- I(setdiff(as.character(names(value)), PD_UNAVAILABLE_INDICES))   # the indices switched on
     list(section = e[[1]], key = e[[2]], kind = e[[3]], value = value, in_file = in_file)
   })
 }
@@ -382,6 +400,7 @@ commit_config <- function(path, new_lines, changes, crlf) {
   for (ch in changes) {
     got <- saved[[ch$section]][[ch$key]]
     want <- ch$value
+    if (identical(ch$key, "acoustic_indices")) { got <- sort(names(got)); want <- sort(unlist(want)) }
     if (is.list(want)) want <- unlist(want)
     if (!identical(unlist(got) %||% NULL, want %||% NULL) && !isTRUE(all.equal(unlist(got), want))) {
       return(list(ok = FALSE, message = sprintf("Not saved: %s: %s would not be read back correctly.", ch$section, ch$key)))
@@ -679,6 +698,141 @@ job_model_input <- function(cfg) {
   list(status = "ok")
 }
 
+# ---- soundscape indices (pamflow Stage 2b) -----------------------------------
+# Acoustic indices (ACI, ADI, AEve, Bio, M, NDSI) per window of the
+# standardized audio, summarised by hour, day/night and site. Needs the scan.
+
+soundscape_dir <- function(cfg) pamflow:::pam_soundscape_out_dir(cfg)
+
+# Send the diel summary pamflow wrote (one row per site and Day/Night).
+emit_soundscape <- function(cfg) {
+  dir <- soundscape_dir(cfg)
+  diel_path <- file.path(dir, "soundscape_diel_summary.csv")
+  run_id <- cfg$run_id %||% cfg$soundscape$run_id %||% "run01"   # pamflow writes its report under this name
+  report <- file.path(dir, "reports", paste0("Soundscape_Report_", run_id, ".html"))
+  sc <- cfg$soundscape
+  settings <- list(window_mins = sc$window_mins, low_stop_hz = sc$low_stop_hz,
+                   day_hours = unlist(sc$day_hours), indices = names(sc$acoustic_indices))
+  # a stopped or running run has results so far (raw) but no summaries yet
+  raw_path <- file.path(dir, "soundscape_raw.csv")
+  done_path <- file.path(dir, "done.txt")
+  n_files <- if (file.exists(done_path)) length(readLines(done_path, warn = FALSE)) else 0L
+  has_raw <- file.exists(raw_path) && file.size(raw_path) > 0
+  if (!file.exists(diel_path)) {
+    pd_emit("soundscape", available = FALSE, dir = dir, settings = settings, has_raw = has_raw, n_files = n_files)
+    return(invisible(FALSE))
+  }
+  diel <- data.table::fread(diel_path, colClasses = list(character = "grid"))
+  keep <- c("grid", "diel_phase", grep("_mean$", names(diel), value = TRUE))
+  diel <- diel[, ..keep]
+  num <- setdiff(names(diel), c("grid", "diel_phase"))
+  for (cn in num) diel[[cn]] <- signif(diel[[cn]], 4)
+  pd_emit("soundscape", available = TRUE, dir = dir, settings = settings, has_raw = has_raw, n_files = n_files,
+          updated = format(file.mtime(diel_path), "%Y-%m-%d %H:%M"),
+          n_sites = data.table::uniqueN(diel$grid), diel = diel,
+          plots_dir = if (dir.exists(file.path(dir, "plots"))) file.path(dir, "plots") else NULL,
+          plots = list.files(file.path(dir, "plots"), pattern = "[.]png$"),
+          report = if (file.exists(report)) report else NULL,
+          files = list.files(dir, pattern = "\\.csv$"))
+  invisible(TRUE)
+}
+
+job_soundscape <- function(cfg) {
+  if (!isTRUE(cfg$soundscape$enabled %||% TRUE)) {
+    return(list(status = "failed", message = "Soundscape indices are turned off in config.yml (soundscape: enabled: false)."))
+  }
+  if (!requireNamespace("soundecology", quietly = TRUE)) {
+    return(list(status = "failed", message = "The R package soundecology is missing from the analysis engine, so the indices cannot be computed."))
+  }
+  if (!file.exists(file.path(cfg$paths$metadata, "audio_master.csv"))) {
+    pd_emit("stage", stage = "scan", label = "Scanning recordings")
+    scan <- with_log_events(pam_run_stage("01_scan", pam_scan_audio, cfg))
+    if (scan$status != "ok") return(list(status = "failed", message = "Scanning the recordings failed; see the log."))
+  }
+  # results made with other settings (indices, window, filter) must not be mixed with new ones
+  sc <- cfg$soundscape
+  settings_line <- as.character(jsonlite::toJSON(
+    list(indices = sc$acoustic_indices, window_mins = sc$window_mins, low_stop_hz = sc$low_stop_hz,
+         sub_window_sec = sc$sub_window_sec), auto_unbox = TRUE, null = "null"))
+  indices_on <- names(sc$acoustic_indices) %||% c("ACI", "ADI", "AEve", "Bio", "M", "NDSI")
+  moved <- pd_archive_stale_soundscape(soundscape_dir(cfg), settings_line, indices_on)
+  if (!is.null(moved)) {
+    pd_emit("log", level = "WARN", stage = "app",
+            text = paste("The settings changed since the earlier results, so they were moved to", moved,
+                         "and the indices are computed again."))
+  }
+  # pamflow lists the files it finished in done.txt, one batch (50 files) at a time;
+  # counting them gives progress and lets a stopped run continue where it stopped.
+  done_path <- file.path(soundscape_dir(cfg), "done.txt")
+  count_done <- function() if (file.exists(done_path)) length(readLines(done_path, warn = FALSE)) else 0L
+  start_done <- count_done()
+  # progress counts every finished file, also those done in an earlier run (cumulative = TRUE)
+  pd_state$total_offset <- start_done
+  if (!length(sc$acoustic_indices)) {
+    return(list(status = "failed", message = "No index is chosen to compute. Choose at least one on the Project step."))
+  }
+  pd_emit("stage", stage = "soundscape", label = "Computing soundscape indices",
+          run_dir = soundscape_dir(cfg), already_done = start_done, cumulative = TRUE)
+  pd_state$total <- NULL
+  batch_size <- max(1L, as.integer(sc$batch_size %||% 50L))   # the size pamflow uses (see pamflow_patches.R)
+  listed <- start_done   # lines of done.txt already shown in the activity list
+  on_batch <- function(p) {
+    lines <- if (file.exists(done_path)) readLines(done_path, warn = FALSE) else character()
+    fresh <- if (length(lines) > listed) lines[(listed + 1):length(lines)] else character()
+    listed <<- max(listed, length(lines))
+    rows <- if (length(fresh)) data.frame(rel = fresh, ok = TRUE, stringsAsFactors = FALSE) else NULL
+    done <- max(0L, length(lines) - start_done)
+    attempted <- min(p$batch * batch_size, pd_state$total %||% Inf)
+    # a file that failed is logged by pamflow but never written to done.txt
+    pd_emit("files", batch = p$batch, batches = p$batches, done = start_done + done,
+            failed = max(0L, attempted - done), detections = 0L, rows = rows)
+  }
+  res <- with_log_events(pam_run_stage("02b_soundscape", pam_soundscape_run, cfg, test_n = job$sample_n),
+                         on_batch = on_batch)
+  if (res$status != "ok") return(list(status = "failed", message = "Computing the indices failed; see the log."))
+  pd_state$total_offset <- NULL
+  emit_soundscape(cfg)
+  list(status = "ok", minutes = round(as.numeric(res$duration), 2), warnings = res$warnings)
+}
+
+# Stage 2c: diel plots and the HTML report, from the summaries already written.
+job_soundscape_vis <- function(cfg) {
+  dir <- soundscape_dir(cfg)
+  raw_path <- file.path(dir, "soundscape_raw.csv")
+  master_path <- file.path(cfg$paths$metadata, "audio_master.csv")
+  if (!file.exists(raw_path) || file.size(raw_path) == 0) {
+    return(list(status = "failed", message = sprintf(
+      "No indices have been computed for the run \"%s\" yet. Compute them on the Soundscape step first.", basename(dir))))
+  }
+  if (!file.exists(master_path)) {
+    return(list(status = "failed", message = "The recordings have not been scanned yet. Scan them on the Scan step first."))
+  }
+  pd_emit("stage", stage = "soundscape_vis", label = "Making plots and report")
+  # pamflow writes its summaries only when a whole run finishes. Making them from the results so far
+  # lets a stopped run be plotted, and picks up changed day hours without re-analysing any audio.
+  made <- tryCatch({
+    raw <- data.table::fread(raw_path, fill = TRUE)
+    sm <- pamflow::pam_soundscape_summarise(raw, data.table::fread(master_path, fill = TRUE), cfg)
+    data.table::fwrite(sm$hourly, file.path(dir, "soundscape_hourly.csv"))
+    data.table::fwrite(sm$diel, file.path(dir, "soundscape_diel_summary.csv"))
+    data.table::fwrite(sm$site_covariates, file.path(dir, "soundscape_site_covariates.csv"))
+    c(sm, list(raw = raw))
+  }, error = function(e) e)
+  if (inherits(made, "error")) {
+    return(list(status = "failed", message = paste("Could not summarise the results so far:", conditionMessage(made))))
+  }
+  res <- with_log_events(pam_run_stage("02c_soundscape_vis",
+                                       function(cfg) pam_soundscape_run_vis(cfg, sc_results = made), cfg))
+  if (res$status != "ok") return(list(status = "failed", message = "Making the plots failed; see the log."))
+  emit_soundscape(cfg)
+  list(status = "ok")
+}
+
+job_soundscape_results <- function(cfg) {
+  emit_soundscape(cfg)
+  list(status = "ok")
+}
+
 # ---- report (pamflow Stage 8) ------------------------------------------------
 # pamflow's report covers the run that was detected, cleaned and validated in
 # the app (birdnet$run_id). Sections without data are left out by pamflow.
@@ -884,7 +1038,7 @@ emit_scan <- function(cfg) {
           metadata_folder = cfg$paths$metadata,
           n_files = nrow(m),
           n_grids = data.table::uniqueN(col("grid", NA)),
-          total_hours = round(sum(col("duration_s", 0), na.rm = TRUE) / 3600, 1),
+          total_hours = round(sum(pmax(col("duration_s", 0), 0)[col("duration_s", 0) < 1e7], na.rm = TRUE) / 3600, 1),  # a corrupt file can hold a huge negative length
           n_qc_pass = count("qc_pass"),
           issues = list(invalid_name = sum(!(col("valid_name", TRUE) %in% TRUE)),
                         unreadable = sum(!(col("readable", TRUE) %in% TRUE)),
@@ -1022,7 +1176,7 @@ with_log_events <- function(expr, on_batch = NULL) {
       # progress reporting must never be able to stop pamflow's own work
       tryCatch({
         p <- pd_parse_log(parts$text)
-        if (p$kind == "total") pd_emit("total", n = p$n)
+        if (p$kind == "total") { pd_state$total <- p$n; pd_emit("total", n = p$n + (pd_state$total_offset %||% 0L)) }
         if (p$kind == "batch" && !is.null(on_batch)) on_batch(p)
       }, error = function(e) pd_emit("log", level = "WARN", stage = "app",
                                      text = paste("progress update skipped:", conditionMessage(e))))
@@ -1058,6 +1212,9 @@ result <- tryCatch(
          occupancy_build = job_occupancy_build(cfg),
          occupancy_results = job_occupancy_results(cfg),
          model_input = job_model_input(cfg),
+         soundscape = job_soundscape(cfg),
+         soundscape_results = job_soundscape_results(cfg),
+         soundscape_vis = job_soundscape_vis(cfg),
          report_preview = job_report_preview(cfg),
          report = job_report(cfg),
          list(status = "failed", message = paste("unknown job:", job$job))),

@@ -108,9 +108,78 @@ pd_yaml_set <- function(lines, section, key, value) {
   append(lines, new_line(""), after = last)
 }
 
+# What pamflow's template gives each soundscape index when it is switched on.
+PD_INDEX_DEFAULTS <- list(
+  ACI = character(), ADI = c("fmin: 0", "fmax: 24000", "bin_step: 1000"), AEve = character(),
+  Bio = "flim: [2000, 11000]", M = character(),
+  NDSI = c("anthro_range: [1000, 2000]", "bio_range: [2000, 11000]"))
+
+#' Choose the soundscape indices in `soundscape: acoustic_indices:`.
+#' An index that stays selected keeps its own settings and comments; a newly
+#' selected one gets pamflow's default settings; the others are removed.
+#' @param indices names, e.g. c("ACI", "Bio"); at least one (an empty list would
+#'   make pamflow compute all of them).
+pd_yaml_set_indices <- function(lines, indices) {
+  indices <- unlist(indices)
+  if (!length(indices)) stop("Choose at least one index.")
+  bad <- setdiff(indices, names(PD_INDEX_DEFAULTS))
+  if (length(bad)) stop("Unknown index: ", paste(bad, collapse = ", "))
+  wanted <- intersect(names(PD_INDEX_DEFAULTS), indices)   # keep pamflow's order
+  fresh <- function(name, at) c(paste0(strrep(" ", at), name, ":"),
+                                if (length(PD_INDEX_DEFAULTS[[name]])) paste0(strrep(" ", at + 2), PD_INDEX_DEFAULTS[[name]]))
+
+  header <- grep("^soundscape:\\s*(#.*)?$", lines)
+  if (!length(header)) {
+    if (length(lines) && nzchar(lines[length(lines)])) lines <- c(lines, "")
+    return(c(lines, "soundscape:", "  acoustic_indices:", unlist(lapply(wanted, fresh, at = 4))))
+  }
+  header <- header[1]
+  end <- length(lines)
+  if (header < length(lines)) {
+    for (i in (header + 1):length(lines)) {
+      if (!pd_is_blank(lines[i]) && pd_indent(lines[i]) == 0) { end <- i - 1; break }
+    }
+  }
+  block <- if (end > header) (header + 1):end else integer()
+  content <- block[!vapply(lines[block], pd_is_blank, logical(1))]
+  base <- if (length(content)) min(vapply(lines[content], pd_indent, numeric(1))) else 2
+  at <- block[grepl(sprintf("^ {%d}acoustic_indices:(\\s.*|)$", base), lines[block])]
+
+  if (!length(at)) {   # not in the file yet: add it after the section's last setting
+    last <- if (length(content)) max(content) else header
+    return(append(lines, c(paste0(strrep(" ", base), "acoustic_indices:"),
+                           unlist(lapply(wanted, fresh, at = base + 2))), after = last))
+  }
+  at <- at[1]
+  # the old entries: deeper-indented lines below the key (blank lines only inside)
+  last <- at
+  i <- at + 1
+  while (i <= end) {
+    if (!pd_is_blank(lines[i]) && pd_indent(lines[i]) > base) last <- i
+    else if (!pd_is_blank(lines[i]) || grepl("^\\s*#", lines[i]) && pd_indent(lines[i]) <= base) break
+    i <- i + 1
+  }
+  old <- if (last > at) lines[(at + 1):last] else character()
+  sub_indent <- if (length(old)) min(vapply(old[!vapply(old, pd_is_blank, logical(1))], pd_indent, numeric(1))) else base + 2
+  starts <- grep(sprintf("^ {%d}[A-Za-z]+:", sub_indent), old)
+  groups <- list()
+  for (k in seq_along(starts)) {
+    to <- if (k < length(starts)) starts[k + 1] - 1 else length(old)
+    groups[[sub("^\\s*([A-Za-z]+):.*$", "\\1", old[starts[k]])]] <- old[starts[k]:to]
+  }
+  nested <- unlist(lapply(wanted, function(n) if (!is.null(groups[[n]])) groups[[n]] else fresh(n, sub_indent)))
+  rest <- sub(sprintf("^ {%d}acoustic_indices:\\s*", base), "", lines[at])
+  comment <- pd_trailing_comment(rest)
+  lines[at] <- paste0(strrep(" ", base), "acoustic_indices:", if (nzchar(comment)) paste0("  ", comment))
+  c(lines[seq_len(at)], nested, if (last < length(lines)) lines[(last + 1):length(lines)])
+}
+
 #' Apply several changes: `changes` is a list of list(section, key, value).
 pd_yaml_apply <- function(lines, changes) {
-  for (ch in changes) lines <- pd_yaml_set(lines, ch$section, ch$key, ch$value)
+  for (ch in changes) {
+    lines <- if (identical(c(ch$section, ch$key), c("soundscape", "acoustic_indices"))) pd_yaml_set_indices(lines, ch$value)
+             else pd_yaml_set(lines, ch$section, ch$key, ch$value)
+  }
   lines
 }
 
