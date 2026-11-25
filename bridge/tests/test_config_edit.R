@@ -140,4 +140,33 @@ ok(identical(names(parse(pd_yaml_set_indices(sc[1:3], "M"))$soundscape$acoustic_
 ok(identical(names(parse(pd_yaml_set_indices(c("paths:", "  a: 1"), c("M", "ACI")))$soundscape$acoustic_indices), c("ACI", "M")), "indices: added when the section is missing")
 ok(inherits(try(pd_yaml_set_indices(sc, character()), silent = TRUE), "try-error"), "indices: an empty choice is refused")
 ok(identical(names(parse(pd_yaml_apply(sc, list(list(section = "soundscape", key = "acoustic_indices", value = list("AEve", "M")))))$soundscape$acoustic_indices), c("AEve", "M")), "indices: reached through pd_yaml_apply")
+
+# every new "More settings" kind of value, written into pamflow's real template
+tpl_path <- if (length(commandArgs(TRUE))) commandArgs(TRUE)[1] else NA
+if (!is.na(tpl_path) && file.exists(tpl_path)) {
+  tl <- readLines(tpl_path, warn = FALSE, encoding = "UTF-8")
+  chg <- list(
+    list(section = "processing", key = "species_whitelist", value = list("Psittacula columboides")),
+    list(section = "processing", key = "species_blacklist", value = list("Gallus gallus", "Pavo cristatus")),
+    list(section = "processing", key = "date_range", value = list("2026-03-26", "2026-04-20")),
+    list(section = "processing", key = "species_thresholds_file", value = "data/thr.csv"),
+    list(section = "processing", key = "species_season_file", value = NULL),
+    list(section = "birdnet", key = "top_k", value = 5L),
+    list(section = "birdnet", key = "device", value = "GPU"),
+    list(section = "deployments", key = "columns", value = list("deployment_id", "grid", "deploy_date")),
+    list(section = "validation", key = "bands", value = list(0.4, 0.6, 1)),
+    list(section = "validation", key = "spec_px", value = list(800L, 300L)),
+    list(section = "recall", key = "hours", value = list()),
+    list(section = "report", key = "formats", value = list("html")))
+  o <- pd_yaml_apply(tl, chg)
+  r <- parse(o)
+  ok(identical(r$processing$species_whitelist, "Psittacula columboides") && identical(r$processing$species_blacklist, c("Gallus gallus", "Pavo cristatus")), "template: species lists")
+  ok(identical(r$processing$date_range, c("2026-03-26", "2026-04-20")) && identical(r$processing$species_thresholds_file, "data/thr.csv") && is.null(r$processing$species_season_file), "template: dates, file and null")
+  ok(identical(r$birdnet$top_k, 5L) && identical(r$birdnet$device, "GPU"), "template: BirdNET values")
+  ok(identical(r$deployments$columns, c("deployment_id", "grid", "deploy_date")), "template: the multi-line column list is replaced whole")
+  ok(identical(r$validation$spec_px, c(800L, 300L)) && isTRUE(all.equal(r$validation$bands, c(0.4, 0.6, 1))), "template: number lists")
+  ok(length(r$recall$hours) == 0 && identical(r$report$formats, "html"), "template: empty list and one-item list")
+  ok(identical(names(r), names(parse(tl))), "template: sections kept")
+  ok(sum(grepl("^[[:space:]]*#", o)) == sum(grepl("^[[:space:]]*#", tl)), "template: every comment line kept")
+} else cat("skip template test (pass the path of pamflow's config_template.yml)\n")
 cat("all config editor tests passed\n")

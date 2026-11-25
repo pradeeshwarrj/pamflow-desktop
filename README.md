@@ -18,7 +18,7 @@ tried by hand; all four systems are built and checked on GitHub.
 
 | Step | What happens |
 |---|---|
-| **Project** | Open a project folder, start a new one with default settings, or try the example project. Choose the recordings folder, deployment sheet and BirdNET model; edit every setting. |
+| **Project** | Open a project folder, start a new one with default settings, or try the example project. Choose the recordings folder, deployment sheet and BirdNET model; edit every setting (the less common ones, such as species filters, BirdNET speed, the deployment sheet format and validation sampling, are under **More settings**). |
 | **Standardize** | Optional first pass over raw recordings: one tidy, consistently named set of FLAC or WAV files, with memos, non-audio and corrupt files set aside. Raw files are never changed. |
 | **Scan** | Reads every recording, checks quality (unreadable, truncated, duplicates, gaps) and matches it to the deployment sheet. |
 | **Filter** | High-pass filter against wind and traffic noise, with progress, stop and continue. |

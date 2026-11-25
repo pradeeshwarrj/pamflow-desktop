@@ -290,7 +290,45 @@ EDITABLE <- list(
   list("validation", "reviewer", "text"),
   list("validation", "show_confidence", "boolean"),
   list("report", "title", "text"),
-  list("report", "author", "text"))
+  list("report", "author", "text"),
+  # ---- the rest of pamflow's settings (shown under "More settings") ----
+  list("report", "formats", "list"),
+  list("deployments", "has_header", "boolean"),
+  list("deployments", "grid_prefix", "text"),
+  list("deployments", "date_format", "text"),
+  list("deployments", "time_format", "text"),
+  list("deployments", "default_recovery_time", "text"),
+  list("deployments", "columns", "list"),
+  list("birdnet", "top_k", "integer_or_null"),
+  list("birdnet", "sigmoid_sensitivity", "number"),
+  list("birdnet", "device", "choice"),
+  list("birdnet", "use_bandpass", "boolean"),
+  list("birdnet", "bandpass_fmin", "number"),
+  list("birdnet", "bandpass_fmax", "number"),
+  list("birdnet", "py_batch_size", "integer"),
+  list("birdnet", "n_producers", "integer"),
+  list("processing", "species_thresholds_file", "file"),
+  list("processing", "species_whitelist", "list"),
+  list("processing", "species_blacklist", "list"),
+  list("processing", "date_range", "list"),
+  list("processing", "species_season_file", "file"),
+  list("processing", "max_overrun_s", "number"),
+  list("validation", "bands", "list"),
+  list("validation", "n_per_cell", "integer"),
+  list("validation", "rare_max_events", "integer"),
+  list("validation", "rare_n", "integer"),
+  list("validation", "clip_pad_s", "number"),
+  list("validation", "spec_max_hz", "number"),
+  list("validation", "spec_px", "list"),
+  list("validation", "seed", "integer"),
+  list("recall", "segment_s", "number"),
+  list("recall", "n_segments", "integer"),
+  list("recall", "hours", "list"),
+  list("recall", "audio", "choice"),
+  list("recall", "spec_px", "list"),
+  list("recall", "spec_max_hz", "number"),
+  list("recall", "seed", "integer"),
+  list("recall", "reviewer", "text"))
 
 # Each editable setting: the value in config.yml (or pamflow's default) and
 # whether config.yml sets it itself.
@@ -302,6 +340,7 @@ editable_settings <- function(config_path) {
     in_file <- !is.null(raw[[e[[1]]]]) && e[[2]] %in% names(raw[[e[[1]]]])
     value <- if (in_file) raw[[e[[1]]]][[e[[2]]]] else defaults[[e[[1]]]][[e[[2]]]]
     if (identical(e[[3]], "indices")) value <- I(setdiff(as.character(names(value)), PD_UNAVAILABLE_INDICES))   # the indices switched on
+    if (identical(e[[3]], "list") && !is.null(value) && !is.list(value)) value <- I(value)   # one item stays a list in JSON
     list(section = e[[1]], key = e[[2]], kind = e[[3]], value = value, in_file = in_file)
   })
 }

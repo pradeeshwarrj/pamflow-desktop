@@ -9,6 +9,7 @@
   import ProjectPicker from './ProjectPicker.svelte';
   import SaveBar from '$lib/components/SaveBar.svelte';
   import ModelCard from '$lib/components/ModelCard.svelte';
+  import MoreSettings from '$lib/components/MoreSettings.svelte';
   import { pickFolder, pickFile } from '$lib/backend/tauri';
   import { project } from '$lib/backend/project.svelte';
   import { settings, syncDraft, id } from '$lib/backend/settings.svelte';
@@ -302,6 +303,8 @@
     </Card>
     {/if}
   </div>
+
+  <MoreSettings detection={isA} />
 
   <SaveBar />
 {/if}

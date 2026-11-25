@@ -22,6 +22,10 @@ pd_yaml_value <- function(value) {
   }
   if (is.list(value) || length(value) != 1 || isTRUE(attr(value, "as_list"))) {
     items <- unlist(value)
+    # decimals and whole numbers in one list: write 1 as 1.0, or YAML reads a mixed list
+    if (is.double(items) && length(items) > 1 && any(items != round(items), na.rm = TRUE)) {
+      return(paste0("[", paste(ifelse(items == round(items), sprintf("%.1f", items), format(items, scientific = FALSE, trim = TRUE, digits = 15)), collapse = ", "), "]"))
+    }
     return(if (length(items)) paste0("[", paste(vapply(items, one, ""), collapse = ", "), "]") else "[]")
   }
   one(value)
