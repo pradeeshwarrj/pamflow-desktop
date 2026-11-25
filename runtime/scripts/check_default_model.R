@@ -25,7 +25,10 @@ run <- function(job) {
   job$models_dir <- models_dir
   f <- tempfile(fileext = ".json")
   writeLines(jsonlite::toJSON(job, auto_unbox = TRUE, null = "null"), f)
-  out <- suppressWarnings(system2(rscript, c(shQuote(bridge), shQuote(f)), stdout = TRUE, stderr = TRUE))
+  # through a file: system2(stdout = TRUE) cuts lines longer than about 8,000 characters on Windows
+  log <- tempfile(fileext = ".log")
+  suppressWarnings(system2(rscript, c(shQuote(bridge), shQuote(f)), stdout = log, stderr = log))
+  out <- readLines(log, warn = FALSE, encoding = "UTF-8")
   lines <- grep("^@@PAM ", out, value = TRUE)
   events <- lapply(lines, function(l) jsonlite::fromJSON(sub("^@@PAM ", "", l), simplifyVector = FALSE))
   list(events = events, out = out,
