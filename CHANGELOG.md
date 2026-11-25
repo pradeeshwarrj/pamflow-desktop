@@ -3,7 +3,7 @@
 All notable changes to pamflow Desktop. Versions follow the numbers in
 `package.json`.
 
-## Unreleased
+## 0.2.1
 
 ### Added
 - Project step: a folded **More settings** section with the rest of pamflow's settings: deployment sheet format (header, grid prefix, date and time format, columns), species filters for Process (keep/remove lists, date range, thresholds and season files, maximum overrun), BirdNET speed and sensitivity, validation sampling, recall check and report formats.
